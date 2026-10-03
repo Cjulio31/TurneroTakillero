@@ -8,7 +8,7 @@ SQLite, los envía por serial (`99 55 <turno>` x2) y los imprime. Ver `PLAN_DE_T
 ```bash
 python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements-dev.txt
-python run.py          # bootstrap (Fase 1: crea BD y logs)
+python run.py          # abre la aplicación
 pytest                 # pruebas
 ruff check .           # lint
 ```
@@ -18,7 +18,7 @@ Variable opcional `TURNOS_HOME` para cambiar la ubicación de `database/` y `log
 ## Estado
 
 - [x] Fase 1 — Base (estructura, logging, SQLite, configuración)
-- [ ] Fase 2 — UI
+- [x] Fase 2 — UI (datos reales de SQLite; HUB/serial/impresora aún simulados)
 - [ ] Fase 3 — Mock HUB
 - [ ] Fase 4 — TurnService
 - [ ] Fase 5 — Serial

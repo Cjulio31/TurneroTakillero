@@ -9,6 +9,7 @@ class Configuration:
     terminal_location: str = ""
     api_token: str = ""
     hub_timeout: int = 10
+    reconnect_interval: int = 5
     serial_port: str = ""
     baudrate: int = 9600
     data_bits: int = 8
