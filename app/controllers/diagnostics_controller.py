@@ -3,6 +3,9 @@ from dataclasses import dataclass
 
 from app.controllers.app_state import AppState
 from app.database.database import Database
+from app.protocol.turn_protocol import TurnProtocol
+from app.services.errors import SerialSendError, SerialUnavailableError
+from app.services.serial_service import SerialService
 from app.utils import constants
 from app.utils.validators import is_valid_turn
 
@@ -20,9 +23,10 @@ def _pending(phase: int) -> DiagnosticResult:
 class DiagnosticsController:
     """Las pruebas reales se conectan a los servicios en las fases 3 a 7."""
 
-    def __init__(self, state: AppState, db: Database):
+    def __init__(self, state: AppState, db: Database, serial: SerialService | None = None):
         self.state = state
         self._db = db
+        self._serial = serial
 
     def check_database(self) -> DiagnosticResult:
         ok = self._db.is_ok()
@@ -32,7 +36,14 @@ class DiagnosticsController:
         return _pending(3)
 
     def test_serial(self) -> DiagnosticResult:
-        return _pending(5)
+        if self._serial is None:
+            return DiagnosticResult(False, "El servicio serial no está activo")
+        status = self._serial.get_status()
+        if status.connected:
+            return DiagnosticResult(True, f"Serial conectado en {status.port}")
+        self._serial.reconnect()  # asíncrono: el indicador se actualiza al terminar
+        reason = status.error or "sin detalle"
+        return DiagnosticResult(False, f"Serial desconectado ({reason}). Reintentando conexión…")
 
     def test_printer(self) -> DiagnosticResult:
         return _pending(6)
@@ -42,7 +53,16 @@ class DiagnosticsController:
             return DiagnosticResult(
                 False, f"Turno inválido: use {constants.MIN_TURN}-{constants.MAX_TURN}"
             )
-        return _pending(5)
+        if self._serial is None:
+            return DiagnosticResult(False, "El servicio serial no está activo")
+        # Va directo al serial: no crea turnos ni toca la secuencia de producción.
+        try:
+            self._serial.send_turn(turn_number)
+        except (SerialUnavailableError, SerialSendError) as exc:
+            return DiagnosticResult(False, f"No se pudo enviar el turno de prueba: {exc}")
+        protocol = TurnProtocol()
+        packet = protocol.format_packet(protocol.build_packet(turn_number))
+        return DiagnosticResult(True, f"TX: {packet} (x{self._serial.transmissions})")
 
     @staticmethod
     def read_log_tail(lines: int = 200) -> str:

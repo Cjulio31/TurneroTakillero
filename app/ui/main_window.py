@@ -16,6 +16,7 @@ from app.controllers.diagnostics_controller import DiagnosticsController
 from app.controllers.history_controller import HistoryController
 from app.controllers.turns_controller import TurnsController
 from app.services.hub_service import HubService
+from app.services.serial_service import SerialService
 from app.services.turn_service import TurnService
 from app.ui.about import AboutPage
 from app.ui.configuration import ConfigurationPage
@@ -38,6 +39,7 @@ class MainWindow(QMainWindow):
         ctx: AppContext,
         hub: HubService | None = None,
         turn_service: TurnService | None = None,
+        serial: SerialService | None = None,
     ):
         super().__init__()
         self.ctx = ctx
@@ -52,7 +54,7 @@ class MainWindow(QMainWindow):
             "Historial": HistoryPage(HistoryController(ctx.turns)),
             "Configuración": ConfigurationPage(config, ctx.state.status("hub")),
             "Hardware": HardwarePage(config),
-            "Diagnóstico": DiagnosticsPage(DiagnosticsController(ctx.state, ctx.db)),
+            "Diagnóstico": DiagnosticsPage(DiagnosticsController(ctx.state, ctx.db, serial)),
             "Acerca de": AboutPage(),
         }
         names = list(PAGES)

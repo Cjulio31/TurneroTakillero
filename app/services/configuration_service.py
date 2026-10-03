@@ -1,7 +1,11 @@
+import logging
+from collections.abc import Callable
 from dataclasses import asdict, fields
 
 from app.database.config_repository import ConfigRepository
 from app.models.configuration import Configuration
+
+log = logging.getLogger(__name__)
 
 
 class ConfigurationService:
@@ -9,6 +13,11 @@ class ConfigurationService:
 
     def __init__(self, repository: ConfigRepository):
         self._repo = repository
+        self._listeners: list[Callable[[Configuration], None]] = []
+
+    def add_listener(self, listener: Callable[[Configuration], None]) -> None:
+        """Avisa a los servicios cuando se guarda la configuración."""
+        self._listeners.append(listener)
 
     def load(self) -> Configuration:
         stored = self._repo.all()
@@ -31,6 +40,11 @@ class ConfigurationService:
     def save(self, config: Configuration) -> None:
         for key, value in asdict(config).items():
             self._repo.set(key, str(value))
+        for listener in self._listeners:
+            try:
+                listener(config)
+            except Exception:  # un listener defectuoso no debe impedir guardar
+                log.exception("Error en listener de configuración")
 
     def is_terminal_configured(self) -> bool:
         cfg = self.load()

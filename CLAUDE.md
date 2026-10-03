@@ -33,12 +33,13 @@ ruff check . --fix && ruff format .   # lint + formato (obligatorio antes de com
 - `app/services/`: `HubService`, `TurnService`, `ConfigurationService` (hechos); `SerialService`,
   `PrinterService`, `HealthService` (pendientes). `TurnService` depende solo de los puertos
   `TurnSerialPort` / `TicketPrinter` (`services/ports.py`) y de `errors.py`; `app/hardware/simulated.py`
-  da dispositivos simulados hasta las fases 5-6.
+  da la impresora simulada hasta la Fase 6.
 - `app/communication/`: transportes del HUB detrás de la interfaz `HubClient`
   (`MockHubClient` hoy; `WebSocketHubClient` / `RestHubClient` en la Fase 7). Cambiar de transporte
   no debe tocar `TurnService`.
-- `app/protocol/`: `message_validator.py` (validación de mensajes del HUB, hecho) y `TurnProtocol`
-  (serial, Fase 5). `app/hardware/`: dispositivos (Fases 5–6).
+- `app/protocol/`: `message_validator.py` (mensajes del HUB) y `turn_protocol.py` (`TurnProtocol`,
+  paquete serial). `app/hardware/`: `serial_device.py` (envoltorio de pyserial + `SerialSettings`);
+  impresora en la Fase 6.
 - `app/database/`: SQLite (tablas `turns`, `configuration`, `events`) + repositorios.
 - `app/context.py`: `AppContext` agrupa db, servicios base y `AppState`.
 
@@ -56,11 +57,18 @@ ruff check . --fix && ruff format .   # lint + formato (obligatorio antes de com
 4. **Recuperación tras reinicio** (`TurnService.recover_on_startup`): `PROCESSING`/`SENT` → `ERROR`
    (`INTERRUPTED`, verificación manual); `PRINTED` → `COMPLETED`; `RECEIVED` se procesa; `ERROR` queda
    para reintento manual. Nunca reprocesar a ciegas.
-5. **Protocolo serial**: `0x99 0x55 <turno 1 byte>`, enviado 2 veces. **No agregar CRC, checksum,
+5. **Protocolo serial** (`TurnProtocol`, `SerialService`): `0x99 0x55 <turno 1 byte>`, enviado 2 veces. **No agregar CRC, checksum,
    ACK ni bytes extra** hasta confirmar con el hardware. Sin reintento serial ciego (ambigüedad
-   sin ACK). El turno es 1–255.
+   sin ACK). El turno es 1–255. Sin puerto o con el puerto desaparecido (se verifica antes de
+   escribir) → `SerialUnavailableError` (nada enviado, turno pendiente); fallo durante la escritura →
+   `SerialSendError` (incierto → `ERROR`). `SerialService` reconecta solo (backoff 2/5/10/20/30 s),
+   abre el puerto en un `QThreadPool` y reabre al cambiar la configuración de conexión.
+   Para probar sin hardware: puerto `loop://` (pyserial) en la pantalla Hardware.
 6. **Hilos**: la UI nunca se bloquea. HUB real, serial, impresión y reconexión van en
-   `QThread`/workers con signals/slots. (El Mock actual es síncrono y no bloquea.)
+   `QThread`/workers con signals/slots. Estado actual: la apertura/reconexión del serial va en
+   `QThreadPool`; `send_turn` y `TurnService` son síncronos en el hilo principal (3 bytes con
+   timeout de 1 s). Mover `TurnService` a un worker (con su propia conexión SQLite) queda para
+   la Fase 8 si el hardware real lo exige.
 7. **Errores**: nunca `except: pass`. Capturar, registrar (`logging`), actualizar estado y
    conservar datos para reintentar.
 8. **Seguridad**: HTTPS/WSS para HUB remoto; el token no debe quedar en texto plano
@@ -85,8 +93,8 @@ ruff check . --fix && ruff format .   # lint + formato (obligatorio antes de com
 
 ## Estado de fases
 
-- [x] 1 Base · [x] 2 UI · [x] 3 Mock HUB · [x] 4 TurnService
-- [ ] 5 Serial · [ ] 6 Impresión · [ ] 7 HUB real · [ ] 8 Integración
+- [x] 1 Base · [x] 2 UI · [x] 3 Mock HUB · [x] 4 TurnService · [x] 5 Serial
+- [ ] 6 Impresión · [ ] 7 HUB real · [ ] 8 Integración
   · [ ] 9 Empaquetado
 
 ## Pendientes externos (ver PLAN_DE_TRABAJO.md §2)

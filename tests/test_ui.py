@@ -84,7 +84,7 @@ def test_diagnostics(ctx):
     ctrl = DiagnosticsController(ctx.state, ctx.db)
     assert ctrl.check_database().ok
     assert not ctrl.send_test_turn(0).ok
-    assert "Fase 5" in ctrl.send_test_turn(25).message
+    assert "no está activo" in ctrl.send_test_turn(25).message
 
 
 def test_config_validation_rules():

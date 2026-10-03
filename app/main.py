@@ -10,9 +10,11 @@ from app.database.config_repository import ConfigRepository
 from app.database.database import Database
 from app.database.event_repository import EventRepository
 from app.database.turn_repository import TurnRepository
-from app.hardware.simulated import SimulatedPrinter, SimulatedSerial
+from app.hardware.serial_device import SerialSettings
+from app.hardware.simulated import SimulatedPrinter
 from app.services.configuration_service import ConfigurationService
 from app.services.hub_service import HubService
+from app.services.serial_service import SerialService
 from app.services.turn_service import TurnService
 from app.ui.main_window import MainWindow
 from app.utils import constants
@@ -40,24 +42,32 @@ def main() -> int:
     app = QApplication.instance() or QApplication(sys.argv)
     app.setApplicationName(constants.APP_NAME)
     app.setQuitOnLastWindowClosed(False)  # sigue en la bandeja al cerrar la ventana
-    # Hasta las fases 5-7 se usan HUB, serial e impresora simulados.
+    # Hasta las fases 6-7 se usan HUB e impresora simulados; el serial ya es real.
     terminal_id = ctx.config_service.load().terminal_id or constants.DEFAULT_TERMINAL_ID
     hub = HubService(MockHubClient(terminal_id), ctx.state, ctx.events)
+    serial = SerialService(
+        ctx.state,
+        ctx.events,
+        settings_provider=lambda: SerialSettings.from_config(ctx.config_service.load()),
+    )
+    ctx.config_service.add_listener(lambda _cfg: serial.on_config_changed())
     turn_service = TurnService(
         ctx.turns,
         ctx.events,
         ctx.state,
-        serial=SimulatedSerial(),
+        serial=serial,
         printer=SimulatedPrinter(),
         ack_sender=hub.send_ack,
         terminal_id=lambda: ctx.config_service.load().terminal_id or constants.DEFAULT_TERMINAL_ID,
     )
     hub.turn_received.connect(turn_service.handle_message)
     turn_service.startup()  # recupera turnos pendientes del cierre anterior
-    window = MainWindow(ctx, hub, turn_service)
+    window = MainWindow(ctx, hub, turn_service, serial)
     window.show()
+    serial.start()
     hub.start()
     code = app.exec()
     hub.stop()
+    serial.stop()
     ctx.db.close()
     return code

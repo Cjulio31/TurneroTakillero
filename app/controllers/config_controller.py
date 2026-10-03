@@ -1,7 +1,6 @@
 from dataclasses import replace
 
-from serial.tools import list_ports
-
+from app.hardware.serial_device import list_serial_ports
 from app.models.configuration import Configuration
 from app.services.configuration_service import ConfigurationService
 
@@ -37,4 +36,4 @@ class ConfigController:
 
     @staticmethod
     def available_serial_ports() -> list[str]:
-        return sorted(p.device for p in list_ports.comports())
+        return list_serial_ports()
