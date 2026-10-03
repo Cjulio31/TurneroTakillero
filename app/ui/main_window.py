@@ -8,18 +8,21 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app.communication.mock_hub_client import MockHubClient
 from app.context import AppContext
 from app.controllers.config_controller import ConfigController
 from app.controllers.dashboard_controller import DashboardController
 from app.controllers.diagnostics_controller import DiagnosticsController
 from app.controllers.history_controller import HistoryController
 from app.controllers.turns_controller import TurnsController
+from app.services.hub_service import HubService
 from app.ui.about import AboutPage
 from app.ui.configuration import ConfigurationPage
 from app.ui.dashboard import DashboardPage
 from app.ui.diagnostics import DiagnosticsPage
 from app.ui.hardware import HardwarePage
 from app.ui.history import HistoryPage
+from app.ui.mock_hub import MockHubPage
 from app.ui.status_indicator import STATUS_STYLE
 from app.ui.tray import TrayController
 from app.ui.turns import TurnsPage
@@ -29,7 +32,7 @@ PAGES = ("Inicio", "Turnos", "Historial", "Configuración", "Hardware", "Diagnó
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, ctx: AppContext):
+    def __init__(self, ctx: AppContext, hub: HubService | None = None):
         super().__init__()
         self.ctx = ctx
         self.setWindowTitle(constants.APP_NAME)
@@ -46,11 +49,15 @@ class MainWindow(QMainWindow):
             "Diagnóstico": DiagnosticsPage(DiagnosticsController(ctx.state, ctx.db)),
             "Acerca de": AboutPage(),
         }
+        names = list(PAGES)
+        if hub is not None and isinstance(hub.client, MockHubClient):
+            self.pages["Mock HUB"] = MockHubPage(hub.client)
+            names.append("Mock HUB")
         self.menu = QListWidget()
         self.menu.setFixedWidth(170)
         self.menu.setStyleSheet("QListWidget::item { padding: 10px; font-size: 14px; }")
         self.stack = QStackedWidget()
-        for name in PAGES:
+        for name in names:
             self.menu.addItem(name)
             self.stack.addWidget(self.pages[name])
         self.menu.currentRowChanged.connect(self._on_page_changed)
@@ -79,8 +86,9 @@ class MainWindow(QMainWindow):
         self.tray.set_status_text(f"HUB {text.lower()}", color)
 
     def show_window(self, page: str | None = None) -> None:
-        if page in PAGES:
-            self.menu.setCurrentRow(PAGES.index(page))
+        for row in range(self.menu.count()):
+            if self.menu.item(row).text() == page:
+                self.menu.setCurrentRow(row)
         self.showNormal()
         self.raise_()
         self.activateWindow()

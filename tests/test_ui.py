@@ -106,3 +106,28 @@ def test_close_hides_to_tray_when_available(qtbot, ctx):
     window.close()
     assert not window.isVisible()
     assert not window._quitting
+
+
+def test_mock_hub_page_controls(qtbot, ctx):
+    from app.communication.backoff import BackoffPolicy
+    from app.communication.mock_hub_client import MockHubClient
+    from app.services.hub_service import HubService
+
+    hub = HubService(MockHubClient("TERM-001"), ctx.state, ctx.events, BackoffPolicy([0.01]))
+    window = MainWindow(ctx, hub)
+    qtbot.addWidget(window)
+    assert window.menu.item(window.menu.count() - 1).text() == "Mock HUB"
+    page = window.pages["Mock HUB"]
+    got = []
+    hub.turn_received.connect(got.append)
+    hub.start()
+    page.turn.setValue(25)
+    page.buttons["ENVIAR"].click()
+    page.buttons["REENVIAR (duplicado)"].click()
+    assert [m["turn"] for m in got] == [25, 25]
+    assert got[0]["message_id"] == got[1]["message_id"]
+    page.buttons["DESCONECTAR"].click()
+    assert not hub.client.is_connected()
+    page.buttons["RECONECTAR"].click()
+    assert hub.client.is_connected()
+    hub.stop()
