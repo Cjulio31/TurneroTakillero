@@ -131,3 +131,42 @@ def test_mock_hub_page_controls(qtbot, ctx):
     page.buttons["RECONECTAR"].click()
     assert hub.client.is_connected()
     hub.stop()
+
+
+def test_turns_page_retry_uses_turn_service(qtbot, ctx):
+    from app.services.errors import PrintError
+    from app.services.turn_service import TurnService
+
+    class Printer:
+        fail = True
+
+        def print_ticket(self, turn):
+            if self.fail:
+                raise PrintError("sin papel")
+
+    class Serial:
+        def send_turn(self, n):
+            pass
+
+    printer = Printer()
+    service = TurnService(
+        ctx.turns,
+        ctx.events,
+        ctx.state,
+        Serial(),
+        printer,
+        ack_sender=lambda *_: True,
+        terminal_id=lambda: "TERM-001",
+    )
+    window = MainWindow(ctx, None, service)
+    qtbot.addWidget(window)
+    service.handle_message({"message_id": "A", "terminal_id": "TERM-001", "turn": 25})
+    page = window.pages["Turnos"]
+    assert page.table.rowCount() == 1 and page.table.item(0, 2).text() == "ERROR"
+
+    printer.fail = False
+    page.table.selectRow(0)
+    page.retry_button.click()
+    assert ctx.turns.get_by_message_id("A").status == "COMPLETED"
+    assert page.table.rowCount() == 0
+    assert "COMPLETED" in page.message.text()

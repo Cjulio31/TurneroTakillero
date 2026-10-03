@@ -16,7 +16,9 @@ CREATE TABLE IF NOT EXISTS turns (
     printed_at DATETIME NULL,
     completed_at DATETIME NULL,
     error_code TEXT NULL,
-    error_message TEXT NULL
+    error_message TEXT NULL,
+    ack_status TEXT NULL,
+    acked_at DATETIME NULL
 );
 CREATE INDEX IF NOT EXISTS idx_turns_status ON turns(status);
 
@@ -49,7 +51,15 @@ class Database:
         if self.path != ":memory:":
             self.conn.execute("PRAGMA journal_mode = WAL")
         self.conn.executescript(SCHEMA)
+        self._migrate()
         self.conn.commit()
+
+    def _migrate(self) -> None:
+        """Agrega columnas nuevas a bases creadas por versiones anteriores."""
+        columns = {row["name"] for row in self.conn.execute("PRAGMA table_info(turns)")}
+        for name, ddl in (("ack_status", "TEXT NULL"), ("acked_at", "DATETIME NULL")):
+            if name not in columns:
+                self.conn.execute(f"ALTER TABLE turns ADD COLUMN {name} {ddl}")
 
     def is_ok(self) -> bool:
         try:

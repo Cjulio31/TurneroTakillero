@@ -1,5 +1,6 @@
 from PySide6.QtWidgets import (
     QHBoxLayout,
+    QLabel,
     QPushButton,
     QTableWidget,
     QTableWidgetItem,
@@ -28,6 +29,7 @@ class TurnsPage(QWidget):
         refresh = QPushButton("Actualizar")
         refresh.clicked.connect(self.refresh)
 
+        self.message = QLabel()
         buttons = QHBoxLayout()
         buttons.addWidget(self.retry_button)
         buttons.addWidget(refresh)
@@ -35,6 +37,7 @@ class TurnsPage(QWidget):
         layout = QVBoxLayout(self)
         layout.addWidget(self.table)
         layout.addLayout(buttons)
+        layout.addWidget(self.message)
         self.refresh()
 
     def refresh(self) -> None:
@@ -49,5 +52,5 @@ class TurnsPage(QWidget):
         row = self.table.currentRow()
         if row < 0:
             return
-        self._controller.retry(self.table.item(row, 1).text())
+        self.message.setText(self._controller.retry(self.table.item(row, 1).text()))
         self.refresh()

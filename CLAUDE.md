@@ -30,12 +30,15 @@ ruff check . --fix && ruff format .   # lint + formato (obligatorio antes de com
 - `app/ui/`: solo widgets. **Nunca** lógica de HUB, serial o impresora; llaman a controladores.
 - `app/controllers/`: puente UI↔servicios. `AppState` (QObject) es el estado compartido
   (estado de hub/serial/impresora/BD) que los servicios actualizan y la UI observa por señales.
-- `app/services/`: `HubService`, `ConfigurationService` (hechos); `TurnService`, `SerialService`,
-  `PrinterService`, `HealthService` (pendientes).
+- `app/services/`: `HubService`, `TurnService`, `ConfigurationService` (hechos); `SerialService`,
+  `PrinterService`, `HealthService` (pendientes). `TurnService` depende solo de los puertos
+  `TurnSerialPort` / `TicketPrinter` (`services/ports.py`) y de `errors.py`; `app/hardware/simulated.py`
+  da dispositivos simulados hasta las fases 5-6.
 - `app/communication/`: transportes del HUB detrás de la interfaz `HubClient`
   (`MockHubClient` hoy; `WebSocketHubClient` / `RestHubClient` en la Fase 7). Cambiar de transporte
   no debe tocar `TurnService`.
-- `app/protocol/`, `app/hardware/`: protocolo serial y dispositivos (Fases 5–6).
+- `app/protocol/`: `message_validator.py` (validación de mensajes del HUB, hecho) y `TurnProtocol`
+  (serial, Fase 5). `app/hardware/`: dispositivos (Fases 5–6).
 - `app/database/`: SQLite (tablas `turns`, `configuration`, `events`) + repositorios.
 - `app/context.py`: `AppContext` agrupa db, servicios base y `AppState`.
 
@@ -46,9 +49,13 @@ ruff check . --fix && ruff format .   # lint + formato (obligatorio antes de com
 2. **Persistir antes de procesar**: el turno se guarda como `RECEIVED` en SQLite apenas llega;
    nunca depender solo de RAM. Un turno no se pierde por fallos de serial/impresora/HUB.
 3. **Estados**: `RECEIVED → PROCESSING → SENT → PRINTED → COMPLETED`, o `ERROR`. Un `COMPLETED`
-   jamás se reenvía ni se reprocesa.
-4. **Recuperación tras reinicio**: consultar `RECEIVED/PROCESSING/ERROR` y aplicar política
-   explícita; no reprocesar a ciegas.
+   jamás se reenvía ni se reprocesa. `PENDING_STATUSES` = todo menos `COMPLETED`.
+   Serial no disponible (nada enviado) → el turno vuelve a `RECEIVED` y se procesa al volver el
+   serial. Error de impresión → `ERROR`; el reintento NO reenvía el serial (`sent_at` ya existe).
+   Error de envío serial incierto (`SerialSendError`) → `ERROR`, sin reintento automático.
+4. **Recuperación tras reinicio** (`TurnService.recover_on_startup`): `PROCESSING`/`SENT` → `ERROR`
+   (`INTERRUPTED`, verificación manual); `PRINTED` → `COMPLETED`; `RECEIVED` se procesa; `ERROR` queda
+   para reintento manual. Nunca reprocesar a ciegas.
 5. **Protocolo serial**: `0x99 0x55 <turno 1 byte>`, enviado 2 veces. **No agregar CRC, checksum,
    ACK ni bytes extra** hasta confirmar con el hardware. Sin reintento serial ciego (ambigüedad
    sin ACK). El turno es 1–255.
@@ -65,21 +72,27 @@ ruff check . --fix && ruff format .   # lint + formato (obligatorio antes de com
 - Python 3.11+, type hints, `ruff` (línea 100). Modelos como `dataclass`.
 - Logs con `logging` estándar (`logs/app.log`, `RotatingFileHandler` 5 MB × 5).
 - Reconexión HUB con backoff 5/10/20/30/60 s (máx. 60), `BackoffPolicy`.
-- Los mensajes del HUB llegan como `dict` crudo; `TurnService` (Fase 4) los valida y convierte a
-  `TurnMessage`.
+- Los mensajes del HUB llegan como `dict` crudo; `TurnService` los valida (`parse_message`) y
+  convierte a `TurnMessage`. Turno válido: entero 1–255 (>255 se rechaza). Los rechazos se registran
+  en `events` y se informan al HUB como `REJECTED` si traen `message_id`.
+- Confirmaciones al HUB: `turns.ack_status/acked_at` registran qué estado final conoce el HUB;
+  `sync_pending_acks()` (al quedar el HUB `READY`) informa lo pendiente sin reprocesar turnos.
+- SQLite: `TurnService` corre síncrono en el hilo principal. Si las fases 5-6 usan hilos, cada hilo
+  necesita su propia conexión (`Database`) o los resultados deben volver al hilo principal por
+  signals. Las migraciones de columnas van en `Database._migrate`.
 - Cada fase añade pruebas. Mantener `ruff check` y `python -m pytest` en verde antes de commitear.
 - No usar Flask ni interfaz web. Sin dependencias del navegador.
 
 ## Estado de fases
 
-- [x] 1 Base · [x] 2 UI · [x] 3 Mock HUB
-- [ ] 4 TurnService · [ ] 5 Serial · [ ] 6 Impresión · [ ] 7 HUB real · [ ] 8 Integración
+- [x] 1 Base · [x] 2 UI · [x] 3 Mock HUB · [x] 4 TurnService
+- [ ] 5 Serial · [ ] 6 Impresión · [ ] 7 HUB real · [ ] 8 Integración
   · [ ] 9 Empaquetado
 
 ## Pendientes externos (ver PLAN_DE_TRABAJO.md §2)
 
 Protocolo/credenciales del HUB real, modelo de impresora, comportamiento del dispositivo serial
-(¿ACK?), política de recuperación de `PROCESSING`, tope de turno 255.
+(¿ACK?). Decididos en la Fase 4: recuperación de `PROCESSING` → `ERROR`; turno >255 rechazado.
 
 ## Git
 

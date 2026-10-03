@@ -10,8 +10,10 @@ from app.database.config_repository import ConfigRepository
 from app.database.database import Database
 from app.database.event_repository import EventRepository
 from app.database.turn_repository import TurnRepository
+from app.hardware.simulated import SimulatedPrinter, SimulatedSerial
 from app.services.configuration_service import ConfigurationService
 from app.services.hub_service import HubService
+from app.services.turn_service import TurnService
 from app.ui.main_window import MainWindow
 from app.utils import constants
 from app.utils.logger import setup_logging
@@ -38,11 +40,21 @@ def main() -> int:
     app = QApplication.instance() or QApplication(sys.argv)
     app.setApplicationName(constants.APP_NAME)
     app.setQuitOnLastWindowClosed(False)  # sigue en la bandeja al cerrar la ventana
-    # Hasta la Fase 7 (HUB real) se usa siempre el HUB simulado.
-    terminal_id = ctx.config_service.load().terminal_id or "TERM-001"
+    # Hasta las fases 5-7 se usan HUB, serial e impresora simulados.
+    terminal_id = ctx.config_service.load().terminal_id or constants.DEFAULT_TERMINAL_ID
     hub = HubService(MockHubClient(terminal_id), ctx.state, ctx.events)
-    hub.turn_received.connect(lambda p: log.info("Mensaje recibido (aún sin TurnService): %s", p))
-    window = MainWindow(ctx, hub)
+    turn_service = TurnService(
+        ctx.turns,
+        ctx.events,
+        ctx.state,
+        serial=SimulatedSerial(),
+        printer=SimulatedPrinter(),
+        ack_sender=hub.send_ack,
+        terminal_id=lambda: ctx.config_service.load().terminal_id or constants.DEFAULT_TERMINAL_ID,
+    )
+    hub.turn_received.connect(turn_service.handle_message)
+    turn_service.startup()  # recupera turnos pendientes del cierre anterior
+    window = MainWindow(ctx, hub, turn_service)
     window.show()
     hub.start()
     code = app.exec()

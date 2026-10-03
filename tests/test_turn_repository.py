@@ -66,3 +66,38 @@ def test_persists_across_reconnect(tmp_path):
     db2 = Database(path)
     assert [t.message_id for t in TurnRepository(db2).list_pending()] == ["A"]
     db2.close()
+
+
+def test_ack_tracking(repo):
+    repo.add("A", "TERM-001", 1)
+    repo.update_status("A", constants.STATUS_COMPLETED)
+    assert [t.message_id for t in repo.list_unacked()] == ["A"]
+    repo.mark_acked("A", "COMPLETED")
+    assert repo.list_unacked() == []
+    repo.update_status("A", constants.STATUS_ERROR, "X", "y")  # cambió el estado: hay que informar
+    assert [t.message_id for t in repo.list_unacked()] == ["A"]
+
+
+def test_migrates_old_database_without_ack_columns(tmp_path):
+    import sqlite3
+
+    from app.database.database import Database
+
+    path = tmp_path / "old.db"
+    conn = sqlite3.connect(path)
+    conn.execute(
+        "CREATE TABLE turns (id INTEGER PRIMARY KEY AUTOINCREMENT, message_id TEXT NOT NULL UNIQUE,"
+        " terminal_id TEXT NOT NULL, turn_number INTEGER NOT NULL, status TEXT NOT NULL,"
+        " received_at DATETIME NOT NULL, processed_at DATETIME NULL, sent_at DATETIME NULL,"
+        " printed_at DATETIME NULL, completed_at DATETIME NULL, error_code TEXT NULL,"
+        " error_message TEXT NULL)"
+    )
+    conn.execute(
+        "INSERT INTO turns (message_id, terminal_id, turn_number, status, received_at)"
+        " VALUES ('OLD', 'TERM-001', 5, 'COMPLETED', '2026-01-01T00:00:00')"
+    )
+    conn.commit()
+    conn.close()
+    db = Database(path)
+    assert TurnRepository(db).get_by_message_id("OLD").ack_status is None
+    db.close()

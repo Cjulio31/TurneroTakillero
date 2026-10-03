@@ -15,3 +15,5 @@ class Turn:
     completed_at: str | None = None
     error_code: str | None = None
     error_message: str | None = None
+    ack_status: str | None = None
+    acked_at: str | None = None

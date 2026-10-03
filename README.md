@@ -20,7 +20,7 @@ Variable opcional `TURNOS_HOME` para cambiar la ubicación de `database/` y `log
 - [x] Fase 1 — Base (estructura, logging, SQLite, configuración)
 - [x] Fase 2 — UI (datos reales de SQLite; HUB/serial/impresora aún simulados)
 - [x] Fase 3 — Mock HUB (`HubClient`, `MockHubClient`, `HubService` con backoff, panel “Mock HUB”)
-- [ ] Fase 4 — TurnService
+- [x] Fase 4 — TurnService (validación, idempotencia, estados, recuperación, sincronización de ACK)
 - [ ] Fase 5 — Serial
 - [ ] Fase 6 — Impresión
 - [ ] Fase 7 — HUB real

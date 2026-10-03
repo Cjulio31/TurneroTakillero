@@ -16,6 +16,7 @@ from app.controllers.diagnostics_controller import DiagnosticsController
 from app.controllers.history_controller import HistoryController
 from app.controllers.turns_controller import TurnsController
 from app.services.hub_service import HubService
+from app.services.turn_service import TurnService
 from app.ui.about import AboutPage
 from app.ui.configuration import ConfigurationPage
 from app.ui.dashboard import DashboardPage
@@ -32,7 +33,12 @@ PAGES = ("Inicio", "Turnos", "Historial", "Configuración", "Hardware", "Diagnó
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, ctx: AppContext, hub: HubService | None = None):
+    def __init__(
+        self,
+        ctx: AppContext,
+        hub: HubService | None = None,
+        turn_service: TurnService | None = None,
+    ):
         super().__init__()
         self.ctx = ctx
         self.setWindowTitle(constants.APP_NAME)
@@ -42,7 +48,7 @@ class MainWindow(QMainWindow):
         config = ConfigController(ctx.config_service)
         self.pages: dict[str, QWidget] = {
             "Inicio": DashboardPage(DashboardController(ctx.state, ctx.turns)),
-            "Turnos": TurnsPage(TurnsController(ctx.turns)),
+            "Turnos": TurnsPage(TurnsController(ctx.turns, turn_service)),
             "Historial": HistoryPage(HistoryController(ctx.turns)),
             "Configuración": ConfigurationPage(config, ctx.state.status("hub")),
             "Hardware": HardwarePage(config),
@@ -69,6 +75,9 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.stack, 1)
         self.setCentralWidget(central)
 
+        if turn_service is not None:
+            turn_service.turn_changed.connect(lambda _id: self._refresh_turn_pages())
+
         self.tray = TrayController(self)
         self.tray.open_requested.connect(self.show_window)
         self.tray.configuration_requested.connect(lambda: self.show_window("Configuración"))
@@ -80,6 +89,10 @@ class MainWindow(QMainWindow):
         page = self.stack.currentWidget()
         if hasattr(page, "refresh"):
             page.refresh()
+
+    def _refresh_turn_pages(self) -> None:
+        for name in ("Inicio", "Turnos"):
+            self.pages[name].refresh()
 
     def _update_tray_status(self, *_: object) -> None:
         text, color = STATUS_STYLE[self.ctx.state.status("hub")]

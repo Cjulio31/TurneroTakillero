@@ -78,6 +78,30 @@ class TurnRepository:
         ).fetchall()
         return [_to_turn(r) for r in rows]
 
+    def list_by_status(self, statuses: tuple[str, ...]) -> list[Turn]:
+        marks = ",".join("?" * len(statuses))
+        rows = self._conn.execute(
+            f"SELECT * FROM turns WHERE status IN ({marks}) ORDER BY id", statuses
+        ).fetchall()
+        return [_to_turn(r) for r in rows]
+
+    def mark_acked(self, message_id: str, status: str) -> None:
+        """Registra que el HUB ya fue informado de este estado del turno."""
+        with self._conn:
+            self._conn.execute(
+                "UPDATE turns SET ack_status = ?, acked_at = ? WHERE message_id = ?",
+                (status, _now(), message_id),
+            )
+
+    def list_unacked(self) -> list[Turn]:
+        """Turnos en estado final (COMPLETED/ERROR) cuyo estado el HUB aún no confirmó."""
+        rows = self._conn.execute(
+            "SELECT * FROM turns WHERE status IN (?, ?)"
+            " AND (ack_status IS NULL OR ack_status != status) ORDER BY id",
+            (constants.STATUS_COMPLETED, constants.STATUS_ERROR),
+        ).fetchall()
+        return [_to_turn(r) for r in rows]
+
     def last(self) -> Turn | None:
         row = self._conn.execute("SELECT * FROM turns ORDER BY id DESC LIMIT 1").fetchone()
         return _to_turn(row) if row else None
