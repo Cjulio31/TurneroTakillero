@@ -13,6 +13,11 @@ pytest                 # pruebas
 ruff check .           # lint
 ```
 
+## Documentación
+
+- [Manual de usuario](docs/MANUAL_DE_USUARIO.md)
+- [Empaquetado e instalación](docs/EMPAQUETADO.md)
+
 ## Empaquetado
 
 `powershell -File packaging\build.ps1` (en Windows) genera `installer/Output/TurnosDesktopSetup.exe`.
