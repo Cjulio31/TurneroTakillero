@@ -4,7 +4,8 @@ from dataclasses import dataclass
 from app.controllers.app_state import AppState
 from app.database.database import Database
 from app.protocol.turn_protocol import TurnProtocol
-from app.services.errors import SerialSendError, SerialUnavailableError
+from app.services.errors import PrintError, SerialSendError, SerialUnavailableError
+from app.services.printer_service import PrinterService
 from app.services.serial_service import SerialService
 from app.utils import constants
 from app.utils.validators import is_valid_turn
@@ -23,10 +24,17 @@ def _pending(phase: int) -> DiagnosticResult:
 class DiagnosticsController:
     """Las pruebas reales se conectan a los servicios en las fases 3 a 7."""
 
-    def __init__(self, state: AppState, db: Database, serial: SerialService | None = None):
+    def __init__(
+        self,
+        state: AppState,
+        db: Database,
+        serial: SerialService | None = None,
+        printer: PrinterService | None = None,
+    ):
         self.state = state
         self._db = db
         self._serial = serial
+        self._printer = printer
 
     def check_database(self) -> DiagnosticResult:
         ok = self._db.is_ok()
@@ -46,7 +54,15 @@ class DiagnosticsController:
         return DiagnosticResult(False, f"Serial desconectado ({reason}). Reintentando conexión…")
 
     def test_printer(self) -> DiagnosticResult:
-        return _pending(6)
+        if self._printer is None:
+            return DiagnosticResult(False, "El servicio de impresión no está activo")
+        if not self._printer.refresh_status():
+            return DiagnosticResult(False, "Impresora no disponible")
+        try:
+            self._printer.test()  # ticket de prueba: no crea turnos ni toca la secuencia
+        except PrintError as exc:
+            return DiagnosticResult(False, f"Falló la impresión de prueba: {exc}")
+        return DiagnosticResult(True, "Ticket de prueba enviado a la impresora")
 
     def send_test_turn(self, turn_number: int) -> DiagnosticResult:
         if not is_valid_turn(turn_number):
