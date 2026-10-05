@@ -60,9 +60,9 @@ class SerialDevice:
         return bool(self._port.is_open)
 
     def write(self, data: bytes) -> int:
-        written = self._port.write(data)
-        self._port.flush()
-        return written
+        # Sin flush(): en Windows (FlushFileBuffers) ignora write_timeout y puede bloquear el
+        # hilo principal para siempre si el dispositivo no drena. write() ya respeta write_timeout.
+        return self._port.write(data)
 
     def read(self, size: int = 1) -> bytes:
         return self._port.read(size)

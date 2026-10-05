@@ -25,6 +25,28 @@ def test_protocol_packet_and_format():
             p.build_packet(bad)
 
 
+class NoFlushPort:
+    """Puerto que cuelga si se llama flush() (FlushFileBuffers ignora write_timeout)."""
+
+    is_open = True
+
+    def __init__(self):
+        self.written = b""
+
+    def write(self, data):
+        self.written += data
+        return len(data)
+
+    def flush(self):
+        raise AssertionError("flush() bloquea el hilo principal; no debe llamarse")
+
+
+def test_device_write_does_not_flush():
+    port = NoFlushPort()
+    assert SerialDevice(port).write(PACKET_25) == 3
+    assert port.written == PACKET_25
+
+
 class FakeDevice:
     def __init__(self, fail_on_write: int | None = None):
         self.writes: list[bytes] = []
