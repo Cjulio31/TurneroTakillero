@@ -170,3 +170,11 @@ def test_turns_page_retry_uses_turn_service(qtbot, ctx):
     assert ctx.turns.get_by_message_id("A").status == "COMPLETED"
     assert page.table.rowCount() == 0
     assert "COMPLETED" in page.message.text()
+
+
+def test_self_check_passes(tmp_path, monkeypatch):
+    from app import main as app_main
+
+    monkeypatch.setattr("app.utils.constants.DATABASE_PATH", tmp_path / "db" / "t.db")
+    monkeypatch.setattr("app.utils.constants.LOG_PATH", tmp_path / "logs" / "app.log")
+    assert app_main.main(["--self-check"]) == 0

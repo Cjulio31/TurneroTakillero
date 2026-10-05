@@ -99,7 +99,14 @@ ruff check . --fix && ruff format .   # lint + formato (obligatorio antes de com
 
 - [x] 1 Base · [x] 2 UI · [x] 3 Mock HUB · [x] 4 TurnService · [x] 5 Serial · [x] 6 Impresión (genérica; falta el método del hardware real)
 - [ ] 7 HUB real · [ ] 8 Integración
-  · [ ] 9 Empaquetado
+  · [~] 9 Empaquetado (archivos listos; falta probar en Windows limpio)
+
+## Empaquetado
+
+Ver `docs/EMPAQUETADO.md`. PyInstaller `onedir` (`packaging/turnos_desktop.spec`) + Inno Setup
+(`installer/TurnosDesktop.iss`); `packaging/build.ps1` hace todo. Empaquetado, los datos van a
+`%LOCALAPPDATA%\TurnosDesktop` (`constants.resolve_base_dir`), nunca junto al exe. `--self-check`
+verifica el exe sin abrir la ventana. Subir `APP_VERSION` antes de cada release; no cambiar el `AppId`.
 
 ## Pendientes externos (ver PLAN_DE_TRABAJO.md §2)
 

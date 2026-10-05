@@ -1,6 +1,8 @@
 import logging
 import sys
 
+import keyring
+from PySide6.QtPrintSupport import QPrinterInfo
 from PySide6.QtWidgets import QApplication
 
 from app.communication.mock_hub_client import MockHubClient
@@ -10,7 +12,7 @@ from app.database.config_repository import ConfigRepository
 from app.database.database import Database
 from app.database.event_repository import EventRepository
 from app.database.turn_repository import TurnRepository
-from app.hardware.serial_device import SerialSettings
+from app.hardware.serial_device import SerialSettings, list_serial_ports
 from app.services.configuration_service import ConfigurationService
 from app.services.health_service import HealthService
 from app.services.hub_service import HubService
@@ -39,7 +41,39 @@ def bootstrap() -> AppContext:
     )
 
 
-def main() -> int:
+def self_check() -> int:
+    """Verifica que el ejecutable empaquetado arranca con todas sus dependencias (0 = OK).
+
+    Pensado para probar una instalación limpia sin abrir la ventana: carga Qt (plugins), crea
+    la interfaz completa, abre la base de datos y consulta serial, impresión y keyring.
+    El resultado queda en el log (el .exe de Windows no tiene consola).
+    """
+    try:
+        ctx = bootstrap()
+        app = QApplication.instance() or QApplication(sys.argv)
+        MainWindow(ctx)  # construye todas las pantallas sin mostrarlas
+        checks = {
+            "database": ctx.db.is_ok(),
+            "serial_ports": list_serial_ports() is not None,
+            "printers": QPrinterInfo.availablePrinterNames() is not None,
+            "keyring": keyring.get_keyring().priority > 0 or sys.platform != "win32",
+        }
+        ctx.db.close()
+        del app
+    except Exception:
+        log.exception("SELF-CHECK failed")
+        return 1
+    failed = [name for name, ok in checks.items() if not ok]
+    if failed:
+        log.error("SELF-CHECK failed: %s", ", ".join(failed))
+        return 1
+    log.info("SELF-CHECK OK (data dir: %s)", constants.BASE_DIR)
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    if "--self-check" in (sys.argv[1:] if argv is None else argv):
+        return self_check()
     ctx = bootstrap()
     app = QApplication.instance() or QApplication(sys.argv)
     app.setApplicationName(constants.APP_NAME)

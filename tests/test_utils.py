@@ -34,3 +34,19 @@ def test_events(db):
     repo = EventRepository(db)
     repo.add("HUB_CONNECTED", "ok")
     assert repo.recent()[0]["event_type"] == "HUB_CONNECTED"
+
+
+def test_resolve_base_dir(monkeypatch, tmp_path):
+    from pathlib import Path
+
+    from app.utils import constants
+
+    monkeypatch.delenv("TURNOS_HOME", raising=False)
+    assert (constants.resolve_base_dir() / "run.py").exists()  # desarrollo: raíz del repo
+
+    monkeypatch.setattr("sys.frozen", True, raising=False)
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+    assert constants.resolve_base_dir() == tmp_path / "TurnosDesktop"  # empaquetado
+
+    monkeypatch.setenv("TURNOS_HOME", str(tmp_path / "custom"))
+    assert constants.resolve_base_dir() == Path(tmp_path / "custom")  # el override manda
