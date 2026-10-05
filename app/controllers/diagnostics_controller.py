@@ -1,3 +1,4 @@
+import logging
 from collections import deque
 from dataclasses import dataclass
 
@@ -8,7 +9,10 @@ from app.services.errors import PrintError, SerialSendError, SerialUnavailableEr
 from app.services.printer_service import PrinterService
 from app.services.serial_service import SerialService
 from app.utils import constants
+from app.utils.logger import clear_logs
 from app.utils.validators import is_valid_turn
+
+log = logging.getLogger(__name__)
 
 
 @dataclass
@@ -79,6 +83,16 @@ class DiagnosticsController:
         protocol = TurnProtocol()
         packet = protocol.format_packet(protocol.build_packet(turn_number))
         return DiagnosticResult(True, f"TX: {packet} (x{self._serial.transmissions})")
+
+    @staticmethod
+    def clear_logs() -> DiagnosticResult:
+        """Borra los archivos de log (no toca turnos ni configuración)."""
+        try:
+            deleted, size = clear_logs()
+        except OSError as exc:
+            log.exception("No se pudieron borrar los logs")
+            return DiagnosticResult(False, f"No se pudieron borrar los logs: {exc}")
+        return DiagnosticResult(True, f"Logs borrados: {deleted} archivo(s), {size / 1024:.0f} KB")
 
     @staticmethod
     def read_log_tail(lines: int = 200) -> str:

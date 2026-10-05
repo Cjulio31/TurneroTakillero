@@ -31,5 +31,48 @@ def setup_logging(log_path: Path | None = None, level: int = logging.INFO) -> lo
     return root
 
 
+def clear_logs(log_path: Path | None = None) -> tuple[int, int]:
+    """Borra el contenido del log activo y los archivos rotados. Devuelve (archivos, bytes).
+
+    Solo toca los logs (`app.log`, `app.log.1`...), nunca la base de datos. El log activo se vacía
+    en lugar de borrarse: el handler lo sigue usando (en Windows un archivo abierto no se puede
+    eliminar). Si algún archivo no se puede borrar se registra y se sigue con los demás.
+    """
+    path = Path(log_path or constants.LOG_PATH)
+    handlers = [
+        h
+        for h in logging.getLogger().handlers
+        if getattr(h, "_turnos_handler", False) and Path(h.baseFilename) == path.absolute()
+    ]
+    for (
+        handler
+    ) in handlers:  # suelta el archivo mientras se borra; el handler lo reabre al escribir
+        handler.acquire()
+        if handler.stream is not None:
+            handler.stream.close()
+            handler.stream = None
+    deleted = size = 0
+    try:
+        for candidate in [path, *sorted(path.parent.glob(path.name + ".*"))]:
+            if not candidate.is_file():
+                continue
+            freed = candidate.stat().st_size
+            try:
+                if candidate == path:
+                    candidate.write_text("")
+                else:
+                    candidate.unlink()
+            except OSError as exc:
+                logging.getLogger(__name__).error("No se pudo borrar %s: %s", candidate, exc)
+                continue
+            deleted += 1
+            size += freed
+    finally:
+        for handler in handlers:
+            handler.release()
+    logging.getLogger(__name__).info("Logs borrados por el usuario (%s archivo(s))", deleted)
+    return deleted, size
+
+
 def get_logger(name: str) -> logging.Logger:
     return logging.getLogger(name)

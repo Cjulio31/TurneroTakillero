@@ -3,6 +3,7 @@ from PySide6.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
     QLabel,
+    QMessageBox,
     QPlainTextEdit,
     QPushButton,
     QSpinBox,
@@ -43,6 +44,7 @@ class DiagnosticsPage(QWidget):
             ("Probar impresora", lambda: self._show(controller.test_printer())),
             ("Probar base de datos", self.check_database),
             ("Ver logs", self.load_logs),
+            ("Borrar logs", lambda: self.clear_logs()),
         )
         for i, (text, handler) in enumerate(buttons):
             button = QPushButton(text)
@@ -82,6 +84,19 @@ class DiagnosticsPage(QWidget):
         result = self._controller.check_database()
         self._controller.state.set_status("database", OK if result.ok else ERROR)
         self._show(result)
+
+    def clear_logs(self, confirm: bool = True) -> None:
+        if confirm:
+            answer = QMessageBox.question(
+                self,
+                "Borrar logs",
+                "Se borrará el registro de actividad (logs). Los turnos y la configuración "
+                "no se tocan.\n\n¿Continuar?",
+            )
+            if answer != QMessageBox.StandardButton.Yes:
+                return
+        self._show(self._controller.clear_logs())
+        self.load_logs()
 
     def load_logs(self) -> None:
         self.log_view.setPlainText(self._controller.read_log_tail())

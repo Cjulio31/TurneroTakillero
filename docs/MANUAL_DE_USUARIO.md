@@ -145,6 +145,9 @@ Para comprobar cada parte y buscar la causa de un problema:
 - **Enviar turno de prueba:** manda el número elegido (1–255) directamente al dispositivo para
   ver que lo muestra. **No crea un turno real ni altera la secuencia ni el historial.**
 - **Ver logs:** muestra las últimas líneas del registro de actividad (útil para soporte).
+- **Borrar logs:** elimina el registro de actividad (pide confirmación). **Solo borra los logs**:
+  los turnos, el historial y la configuración no se tocan. Antes de borrar, guarde una copia de
+  `logs\app.log` si soporte la necesita para analizar un problema.
 - **Probar HUB:** todavía no disponible (llegará con el HUB real).
 
 El resultado aparece debajo con ✔ (bien) o ✖ (falló y por qué).

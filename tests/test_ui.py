@@ -178,3 +178,24 @@ def test_self_check_passes(tmp_path, monkeypatch):
     monkeypatch.setattr("app.utils.constants.DATABASE_PATH", tmp_path / "db" / "t.db")
     monkeypatch.setattr("app.utils.constants.LOG_PATH", tmp_path / "logs" / "app.log")
     assert app_main.main(["--self-check"]) == 0
+
+
+def test_diagnostics_clear_logs(qtbot, ctx, tmp_path, monkeypatch):
+    from app.ui.diagnostics import DiagnosticsPage
+    from app.utils import constants
+    from app.utils.logger import setup_logging
+
+    path = tmp_path / "logs" / "app.log"
+    monkeypatch.setattr(constants, "LOG_PATH", path)
+    setup_logging(path)
+    import logging
+
+    logging.getLogger("t").info("linea vieja")
+    page = DiagnosticsPage(DiagnosticsController(ctx.state, ctx.db))
+    qtbot.addWidget(page)
+    page.load_logs()
+    assert "linea vieja" in page.log_view.toPlainText()
+    page.clear_logs(confirm=False)
+    assert "linea vieja" not in page.log_view.toPlainText()
+    assert page.result.text().startswith("✔ Logs borrados")
+    assert ctx.turns.last() is None  # no toca los datos
