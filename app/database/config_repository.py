@@ -26,3 +26,7 @@ class ConfigRepository:
     def all(self) -> dict[str, str]:
         rows = self._conn.execute("SELECT config_key, config_value FROM configuration").fetchall()
         return {r["config_key"]: r["config_value"] for r in rows}
+
+    def delete(self, key: str) -> None:
+        with self._conn:
+            self._conn.execute("DELETE FROM configuration WHERE config_key = ?", (key,))

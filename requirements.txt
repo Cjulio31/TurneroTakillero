@@ -1,2 +1,3 @@
 PySide6-Essentials>=6.6
 pyserial>=3.5
+keyring>=24

@@ -14,6 +14,7 @@ from app.hardware.serial_device import SerialSettings
 from app.services.configuration_service import ConfigurationService
 from app.services.hub_service import HubService
 from app.services.printer_service import PrinterService
+from app.services.secret_store import KeyringSecretStore
 from app.services.serial_service import SerialService
 from app.services.turn_service import TurnService
 from app.ui.main_window import MainWindow
@@ -30,7 +31,7 @@ def bootstrap() -> AppContext:
     db = Database()
     return AppContext(
         db=db,
-        config_service=ConfigurationService(ConfigRepository(db)),
+        config_service=ConfigurationService(ConfigRepository(db), KeyringSecretStore()),
         turns=TurnRepository(db),
         events=EventRepository(db),
         state=AppState(),

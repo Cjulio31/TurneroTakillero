@@ -71,8 +71,10 @@ ruff check . --fix && ruff format .   # lint + formato (obligatorio antes de com
    la Fase 8 si el hardware real lo exige.
 7. **Errores**: nunca `except: pass`. Capturar, registrar (`logging`), actualizar estado y
    conservar datos para reintentar.
-8. **Seguridad**: HTTPS/WSS para HUB remoto; el token no debe quedar en texto plano
-   (hoy se guarda en la tabla `configuration`; migrar a `keyring`/DPAPI antes de la Fase 7).
+8. **Seguridad**: HTTPS/WSS para HUB remoto. El token del HUB vive en el almacén del sistema
+   (`keyring`: Credential Manager en Windows), nunca en SQLite: `ConfigurationService` usa
+   `SecretStore` (`services/secret_store.py`) y migra al leer un token en texto plano heredado.
+   Si el almacén falla, guardar la configuración lanza `SecretStoreError` (no se guarda a medias).
 9. **Prueba de turno** en Diagnóstico no crea turnos reales ni afecta la secuencia.
 
 ## Convenciones
