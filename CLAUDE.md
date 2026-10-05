@@ -31,15 +31,17 @@ ruff check . --fix && ruff format .   # lint + formato (obligatorio antes de com
 - `app/controllers/`: puente UI↔servicios. `AppState` (QObject) es el estado compartido
   (estado de hub/serial/impresora/BD) que los servicios actualizan y la UI observa por señales.
 - `app/services/`: `HubService`, `TurnService`, `ConfigurationService` (hechos); `SerialService`,
-  `PrinterService`, `HealthService` (pendientes). `TurnService` depende solo de los puertos
-  `TurnSerialPort` / `TicketPrinter` (`services/ports.py`) y de `errors.py`; `app/hardware/simulated.py`
-  da la impresora simulada hasta la Fase 6.
+  `PrinterService`, `HealthService` (hechos). `HealthService` agrega el estado de los 4
+  componentes + turnos pendientes/en error en un `HealthReport` (OK/DEGRADED/DOWN) que alimenta la
+  bandeja y el Inicio; mide la BD (`ping` cada 10 s, `integrity_check` al arrancar). `TurnService` depende solo de los puertos
+  `TurnSerialPort` / `TicketPrinter` (`services/ports.py`) y de `errors.py`.
 - `app/communication/`: transportes del HUB detrás de la interfaz `HubClient`
   (`MockHubClient` hoy; `WebSocketHubClient` / `RestHubClient` en la Fase 7). Cambiar de transporte
   no debe tocar `TurnService`.
 - `app/protocol/`: `message_validator.py` (mensajes del HUB) y `turn_protocol.py` (`TurnProtocol`,
   paquete serial). `app/hardware/`: `serial_device.py` (envoltorio de pyserial + `SerialSettings`);
-  impresora en la Fase 6.
+  `printer_backend.py` (backends: simulado si `printer_type` vacío, `Windows Printer` vía Qt, USB/Serial/Red
+  aún `UnsupportedBackend` hasta tener el modelo real) y `ticket.py` (contenido del ticket).
 - `app/database/`: SQLite (tablas `turns`, `configuration`, `events`) + repositorios.
 - `app/context.py`: `AppContext` agrupa db, servicios base y `AppState`.
 
@@ -71,8 +73,10 @@ ruff check . --fix && ruff format .   # lint + formato (obligatorio antes de com
    la Fase 8 si el hardware real lo exige.
 7. **Errores**: nunca `except: pass`. Capturar, registrar (`logging`), actualizar estado y
    conservar datos para reintentar.
-8. **Seguridad**: HTTPS/WSS para HUB remoto; el token no debe quedar en texto plano
-   (hoy se guarda en la tabla `configuration`; migrar a `keyring`/DPAPI antes de la Fase 7).
+8. **Seguridad**: HTTPS/WSS para HUB remoto. El token del HUB vive en el almacén del sistema
+   (`keyring`: Credential Manager en Windows), nunca en SQLite: `ConfigurationService` usa
+   `SecretStore` (`services/secret_store.py`) y migra al leer un token en texto plano heredado.
+   Si el almacén falla, guardar la configuración lanza `SecretStoreError` (no se guarda a medias).
 9. **Prueba de turno** en Diagnóstico no crea turnos reales ni afecta la secuencia.
 
 ## Convenciones
@@ -93,9 +97,16 @@ ruff check . --fix && ruff format .   # lint + formato (obligatorio antes de com
 
 ## Estado de fases
 
-- [x] 1 Base · [x] 2 UI · [x] 3 Mock HUB · [x] 4 TurnService · [x] 5 Serial
-- [ ] 6 Impresión · [ ] 7 HUB real · [ ] 8 Integración
-  · [ ] 9 Empaquetado
+- [x] 1 Base · [x] 2 UI · [x] 3 Mock HUB · [x] 4 TurnService · [x] 5 Serial · [x] 6 Impresión (genérica; falta el método del hardware real)
+- [ ] 7 HUB real · [ ] 8 Integración
+  · [~] 9 Empaquetado (archivos listos; falta probar en Windows limpio)
+
+## Empaquetado
+
+Ver `docs/EMPAQUETADO.md`. PyInstaller `onedir` (`packaging/turnos_desktop.spec`) + Inno Setup
+(`installer/TurnosDesktop.iss`); `packaging/build.ps1` hace todo. Empaquetado, los datos van a
+`%LOCALAPPDATA%\TurnosDesktop` (`constants.resolve_base_dir`), nunca junto al exe. `--self-check`
+verifica el exe sin abrir la ventana. Subir `APP_VERSION` antes de cada release; no cambiar el `AppId`.
 
 ## Pendientes externos (ver PLAN_DE_TRABAJO.md §2)
 

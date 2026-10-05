@@ -102,6 +102,10 @@ class TurnRepository:
         ).fetchall()
         return [_to_turn(r) for r in rows]
 
+    def count_by_status(self) -> dict[str, int]:
+        rows = self._conn.execute("SELECT status, COUNT(*) AS n FROM turns GROUP BY status")
+        return {r["status"]: r["n"] for r in rows}
+
     def last(self) -> Turn | None:
         row = self._conn.execute("SELECT * FROM turns ORDER BY id DESC LIMIT 1").fetchone()
         return _to_turn(row) if row else None

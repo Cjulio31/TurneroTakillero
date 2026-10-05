@@ -1,13 +1,18 @@
+import logging
 from collections import deque
 from dataclasses import dataclass
 
 from app.controllers.app_state import AppState
 from app.database.database import Database
 from app.protocol.turn_protocol import TurnProtocol
-from app.services.errors import SerialSendError, SerialUnavailableError
+from app.services.errors import PrintError, SerialSendError, SerialUnavailableError
+from app.services.printer_service import PrinterService
 from app.services.serial_service import SerialService
 from app.utils import constants
+from app.utils.logger import clear_logs
 from app.utils.validators import is_valid_turn
+
+log = logging.getLogger(__name__)
 
 
 @dataclass
@@ -23,10 +28,17 @@ def _pending(phase: int) -> DiagnosticResult:
 class DiagnosticsController:
     """Las pruebas reales se conectan a los servicios en las fases 3 a 7."""
 
-    def __init__(self, state: AppState, db: Database, serial: SerialService | None = None):
+    def __init__(
+        self,
+        state: AppState,
+        db: Database,
+        serial: SerialService | None = None,
+        printer: PrinterService | None = None,
+    ):
         self.state = state
         self._db = db
         self._serial = serial
+        self._printer = printer
 
     def check_database(self) -> DiagnosticResult:
         ok = self._db.is_ok()
@@ -46,7 +58,15 @@ class DiagnosticsController:
         return DiagnosticResult(False, f"Serial desconectado ({reason}). Reintentando conexión…")
 
     def test_printer(self) -> DiagnosticResult:
-        return _pending(6)
+        if self._printer is None:
+            return DiagnosticResult(False, "El servicio de impresión no está activo")
+        if not self._printer.refresh_status():
+            return DiagnosticResult(False, "Impresora no disponible")
+        try:
+            self._printer.test()  # ticket de prueba: no crea turnos ni toca la secuencia
+        except PrintError as exc:
+            return DiagnosticResult(False, f"Falló la impresión de prueba: {exc}")
+        return DiagnosticResult(True, "Ticket de prueba enviado a la impresora")
 
     def send_test_turn(self, turn_number: int) -> DiagnosticResult:
         if not is_valid_turn(turn_number):
@@ -63,6 +83,16 @@ class DiagnosticsController:
         protocol = TurnProtocol()
         packet = protocol.format_packet(protocol.build_packet(turn_number))
         return DiagnosticResult(True, f"TX: {packet} (x{self._serial.transmissions})")
+
+    @staticmethod
+    def clear_logs() -> DiagnosticResult:
+        """Borra los archivos de log (no toca turnos ni configuración)."""
+        try:
+            deleted, size = clear_logs()
+        except OSError as exc:
+            log.exception("No se pudieron borrar los logs")
+            return DiagnosticResult(False, f"No se pudieron borrar los logs: {exc}")
+        return DiagnosticResult(True, f"Logs borrados: {deleted} archivo(s), {size / 1024:.0f} KB")
 
     @staticmethod
     def read_log_tail(lines: int = 200) -> str:

@@ -13,6 +13,16 @@ pytest                 # pruebas
 ruff check .           # lint
 ```
 
+## Documentación
+
+- [Manual de usuario](docs/MANUAL_DE_USUARIO.md)
+- [Empaquetado e instalación](docs/EMPAQUETADO.md)
+
+## Empaquetado
+
+`powershell -File packaging\build.ps1` (en Windows) genera `installer/Output/TurnosDesktopSetup.exe`.
+Ver [docs/EMPAQUETADO.md](docs/EMPAQUETADO.md).
+
 Variable opcional `TURNOS_HOME` para cambiar la ubicación de `database/` y `logs/`.
 
 ## Estado
@@ -22,7 +32,7 @@ Variable opcional `TURNOS_HOME` para cambiar la ubicación de `database/` y `log
 - [x] Fase 3 — Mock HUB (`HubClient`, `MockHubClient`, `HubService` con backoff, panel “Mock HUB”)
 - [x] Fase 4 — TurnService (validación, idempotencia, estados, recuperación, sincronización de ACK)
 - [x] Fase 5 — Serial (`TurnProtocol`, `SerialService`, reconexión; probar sin hardware con el puerto `loop://`)
-- [ ] Fase 6 — Impresión
+- [x] Fase 6 — Impresión (genérica vía impresora de Windows; falta el método del hardware real)
 - [ ] Fase 7 — HUB real
 - [ ] Fase 8 — Integración
-- [ ] Fase 9 — Empaquetado
+- [~] Fase 9 — Empaquetado (listo para construir; falta la prueba en Windows limpio)

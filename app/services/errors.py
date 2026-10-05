@@ -11,3 +11,7 @@ class SerialSendError(Exception):
 
 class PrintError(Exception):
     """Falló la impresión del ticket."""
+
+
+class SecretStoreError(Exception):
+    """No se pudo leer o guardar un secreto en el almacén seguro del sistema."""

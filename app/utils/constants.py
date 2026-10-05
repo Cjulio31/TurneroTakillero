@@ -1,11 +1,29 @@
 import os
+import sys
 from pathlib import Path
 
 APP_NAME = "Turnos Desktop"
 APP_VERSION = "0.1.0"
 
-# Directorio base de datos y logs. Se puede cambiar con TURNOS_HOME (p. ej. en el instalador).
-BASE_DIR = Path(os.environ.get("TURNOS_HOME", Path(__file__).resolve().parents[2]))
+
+def resolve_base_dir() -> Path:
+    """Carpeta (escribible) de `database/` y `logs/`.
+
+    - `TURNOS_HOME` manda siempre.
+    - Empaquetado (PyInstaller): `%LOCALAPPDATA%\\TurnosDesktop`. La carpeta de la app no sirve:
+      puede ser de solo lectura o temporal, y los datos deben sobrevivir a actualizaciones.
+    - Desarrollo: la raíz del repositorio.
+    """
+    override = os.environ.get("TURNOS_HOME")
+    if override:
+        return Path(override)
+    if getattr(sys, "frozen", False):
+        root = os.environ.get("LOCALAPPDATA") or Path.home() / ".local" / "share"
+        return Path(root) / "TurnosDesktop"
+    return Path(__file__).resolve().parents[2]
+
+
+BASE_DIR = resolve_base_dir()
 DATABASE_PATH = BASE_DIR / "database" / "turnos.db"
 LOG_PATH = BASE_DIR / "logs" / "app.log"
 LOG_MAX_BYTES = 5 * 1024 * 1024

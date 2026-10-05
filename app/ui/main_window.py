@@ -15,7 +15,9 @@ from app.controllers.dashboard_controller import DashboardController
 from app.controllers.diagnostics_controller import DiagnosticsController
 from app.controllers.history_controller import HistoryController
 from app.controllers.turns_controller import TurnsController
+from app.services.health_service import LEVEL_DEGRADED, LEVEL_DOWN, HealthReport, HealthService
 from app.services.hub_service import HubService
+from app.services.printer_service import PrinterService
 from app.services.serial_service import SerialService
 from app.services.turn_service import TurnService
 from app.ui.about import AboutPage
@@ -40,6 +42,8 @@ class MainWindow(QMainWindow):
         hub: HubService | None = None,
         turn_service: TurnService | None = None,
         serial: SerialService | None = None,
+        printer: PrinterService | None = None,
+        health: HealthService | None = None,
     ):
         super().__init__()
         self.ctx = ctx
@@ -49,12 +53,14 @@ class MainWindow(QMainWindow):
 
         config = ConfigController(ctx.config_service)
         self.pages: dict[str, QWidget] = {
-            "Inicio": DashboardPage(DashboardController(ctx.state, ctx.turns)),
+            "Inicio": DashboardPage(DashboardController(ctx.state, ctx.turns, health)),
             "Turnos": TurnsPage(TurnsController(ctx.turns, turn_service)),
             "Historial": HistoryPage(HistoryController(ctx.turns)),
             "Configuración": ConfigurationPage(config, ctx.state.status("hub")),
             "Hardware": HardwarePage(config),
-            "Diagnóstico": DiagnosticsPage(DiagnosticsController(ctx.state, ctx.db, serial)),
+            "Diagnóstico": DiagnosticsPage(
+                DiagnosticsController(ctx.state, ctx.db, serial, printer)
+            ),
             "Acerca de": AboutPage(),
         }
         names = list(PAGES)
@@ -84,7 +90,10 @@ class MainWindow(QMainWindow):
         self.tray.open_requested.connect(self.show_window)
         self.tray.configuration_requested.connect(lambda: self.show_window("Configuración"))
         self.tray.quit_requested.connect(self.quit)
-        ctx.state.status_changed.connect(self._update_tray_status)
+        if health is not None:
+            health.report_changed.connect(self._update_tray_health)
+        else:
+            ctx.state.status_changed.connect(self._update_tray_status)
 
     def _on_page_changed(self, row: int) -> None:
         self.stack.setCurrentIndex(row)
@@ -99,6 +108,10 @@ class MainWindow(QMainWindow):
     def _update_tray_status(self, *_: object) -> None:
         text, color = STATUS_STYLE[self.ctx.state.status("hub")]
         self.tray.set_status_text(f"HUB {text.lower()}", color)
+
+    def _update_tray_health(self, report: HealthReport) -> None:
+        color = {LEVEL_DOWN: "#c0392b", LEVEL_DEGRADED: "#d99a00"}.get(report.level, "#2e9e45")
+        self.tray.set_status_text(report.summary, color)
 
     def show_window(self, page: str | None = None) -> None:
         for row in range(self.menu.count()):

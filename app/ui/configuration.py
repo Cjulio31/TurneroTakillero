@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
 )
 
 from app.controllers.config_controller import ConfigController
+from app.services.errors import SecretStoreError
 from app.ui.status_indicator import StatusIndicator
 
 
@@ -86,7 +87,7 @@ class ConfigurationPage(QWidget):
                 terminal_name=self.terminal_name.text().strip(),
                 terminal_location=self.terminal_location.text().strip(),
             )
-        except ValueError as exc:
+        except (ValueError, SecretStoreError) as exc:
             self.message.setText(f"No guardado: {exc}")
             if msg_box:
                 QMessageBox.warning(self, "Configuración", str(exc))
