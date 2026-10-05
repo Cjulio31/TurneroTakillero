@@ -4,6 +4,13 @@ on:
   workflow_dispatch:
   push:
     tags: ["v*"]
+    branches: ["claude/hopeful-fermat-h57731"]
+    paths:
+      - "app/**"
+      - "packaging/**"
+      - "installer/**"
+      - "requirements*.txt"
+      - ".github/workflows/windows-build.yml"
 
 jobs:
   build:
