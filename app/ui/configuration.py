@@ -92,5 +92,7 @@ class ConfigurationPage(QWidget):
             if msg_box:
                 QMessageBox.warning(self, "Configuración", str(exc))
             return False
-        self.message.setText("Configuración guardada. Se aplicará al reconectar.")
+        self.message.setText(
+            "Configuración guardada. Reinicie la aplicación para aplicar los cambios del HUB."
+        )
         return True

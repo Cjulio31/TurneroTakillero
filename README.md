@@ -17,6 +17,7 @@ ruff check .           # lint
 
 - [Manual de usuario](docs/MANUAL_DE_USUARIO.md)
 - [Empaquetado e instalación](docs/EMPAQUETADO.md)
+- [Conexión con el HUB (protocolo provisional)](docs/HUB_PROTOCOLO.md)
 
 ## Empaquetado
 
@@ -33,6 +34,6 @@ Variable opcional `TURNOS_HOME` para cambiar la ubicación de `database/` y `log
 - [x] Fase 4 — TurnService (validación, idempotencia, estados, recuperación, sincronización de ACK)
 - [x] Fase 5 — Serial (`TurnProtocol`, `SerialService`, reconexión; probar sin hardware con el puerto `loop://`)
 - [x] Fase 6 — Impresión (genérica vía impresora de Windows; falta el método del hardware real)
-- [ ] Fase 7 — HUB real
+- [~] Fase 7 — HUB real (WebSocket y REST implementados con formato provisional; ver docs/HUB_PROTOCOLO.md)
 - [ ] Fase 8 — Integración
 - [~] Fase 9 — Empaquetado (listo para construir; falta la prueba en Windows limpio)

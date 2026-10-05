@@ -239,9 +239,12 @@ def test_real_pyserial_port_through_pty(make_env, ctx):
         env = make_env(port=os.ttyname(slave))
         assert env.service.connect()
         env.service.send_turn(25)
-        ready, _, _ = select.select([master], [], [], 1.0)
-        assert ready
-        assert os.read(master, 64) == PACKET_25 * 2
+        received = b""
+        while len(received) < len(PACKET_25) * 2:  # las dos transmisiones pueden llegar separadas
+            ready, _, _ = select.select([master], [], [], 1.0)
+            assert ready
+            received += os.read(master, 64)
+        assert received == PACKET_25 * 2
     finally:
         os.close(master)
         os.close(slave)

@@ -18,6 +18,10 @@ class HubClient(ABC):
     TurnService/HubService solo conocen esta interfaz: cambiar de tecnología no los afecta.
     """
 
+    # True si connect() puede tardar (red): HubService lo ejecuta fuera del hilo de la UI.
+    # Los callbacks de estos transportes se invocan desde hilos propios.
+    connect_blocks: bool = False
+
     @abstractmethod
     def connect(self) -> None:
         """Conecta y registra la terminal. Lanza HubConnectionError si falla."""

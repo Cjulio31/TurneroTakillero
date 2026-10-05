@@ -3,9 +3,9 @@
 Guía para quien opera la terminal de turnos. No requiere conocimientos técnicos. Para instalar
 el programa ver [EMPAQUETADO.md](EMPAQUETADO.md).
 
-> **Versión de este manual:** corresponde a la versión 0.1.0. Por ahora el programa trabaja con
-> un **HUB simulado** (de pruebas); la conexión con el HUB real y la impresora definitiva se
-> habilitarán en versiones posteriores. Las secciones lo indican donde aplica.
+> **Versión de este manual:** corresponde a la versión 0.1.0. Sin URL de HUB el programa trabaja
+> con un **HUB simulado** (de pruebas). La conexión al HUB real ya existe, pero su formato de
+> mensajes está pendiente de confirmar con el equipo del HUB; la impresora definitiva también. Las secciones lo indican donde aplica.
 
 ## 1. ¿Qué hace el programa?
 
@@ -97,14 +97,14 @@ Origen (terminal) y Error.
 
 | Campo | Para qué sirve |
 |---|---|
-| URL HUB | Dirección del HUB (`https://…`; debe comenzar con `http(s)://` o `ws(s)://`) |
+| URL HUB | Dirección del HUB: `wss://…` (WebSocket) o `https://…` (REST). Vacía = HUB simulado. Solo se admite conexión cifrada |
 | Token / API Key | Credencial que entrega el equipo del HUB |
 | Timeout | Segundos de espera por respuesta del HUB (1–300) |
 | Intervalo de reconexión | Segundos entre reintentos de conexión (1–60) |
 | Terminal ID | Identificador único de esta terminal (obligatorio si hay URL) |
 | Nombre / Ubicación | Aparecen en el encabezado del ticket |
 
-Pulse **Guardar**. Los cambios del HUB se aplican al reconectar.
+Pulse **Guardar** y **reinicie la aplicación** para que los cambios del HUB se apliquen.
 
 - El **token** se guarda de forma segura en Windows (Administrador de credenciales), no en
   texto plano. Si Windows no permite guardarlo, aparece «No guardado: …».
@@ -148,7 +148,7 @@ Para comprobar cada parte y buscar la causa de un problema:
 - **Borrar logs:** elimina el registro de actividad (pide confirmación). **Solo borra los logs**:
   los turnos, el historial y la configuración no se tocan. Antes de borrar, guarde una copia de
   `logs\app.log` si soporte la necesita para analizar un problema.
-- **Probar HUB:** todavía no disponible (llegará con el HUB real).
+- **Probar HUB:** indica si el HUB está conectado (y el tipo de conexión) y, si no, reintenta al instante.
 
 El resultado aparece debajo con ✔ (bien) o ✖ (falló y por qué).
 

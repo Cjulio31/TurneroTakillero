@@ -59,7 +59,7 @@ class MainWindow(QMainWindow):
             "Configuración": ConfigurationPage(config, ctx.state.status("hub")),
             "Hardware": HardwarePage(config),
             "Diagnóstico": DiagnosticsPage(
-                DiagnosticsController(ctx.state, ctx.db, serial, printer)
+                DiagnosticsController(ctx.state, ctx.db, serial, printer, hub)
             ),
             "Acerca de": AboutPage(),
         }

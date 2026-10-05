@@ -1,5 +1,6 @@
 from dataclasses import replace
 
+from app.communication.hub_url import ensure_secure_url
 from app.hardware.serial_device import list_serial_ports
 from app.models.configuration import Configuration
 from app.services.configuration_service import ConfigurationService
@@ -21,10 +22,8 @@ class ConfigController:
 
     @staticmethod
     def validate(cfg: Configuration) -> None:
-        if cfg.hub_url and not cfg.hub_url.lower().startswith(
-            ("http://", "https://", "ws://", "wss://")
-        ):
-            raise ValueError("La URL del HUB debe iniciar con http(s):// o ws(s)://")
+        if cfg.hub_url:
+            ensure_secure_url(cfg.hub_url, ("wss", "ws", "https", "http"))
         if cfg.hub_url and not cfg.terminal_id.strip():
             raise ValueError("Debe indicar el Terminal ID")
         if cfg.hub_timeout < 1:

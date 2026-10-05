@@ -140,3 +140,26 @@ def test_turn_arrives_then_hub_drops_turn_still_delivered(qtbot, service):
     service.client.send_turn(25)
     service.client.simulate_disconnect()
     assert len(got) == 1
+
+
+def test_diagnostics_test_hub(ctx):
+    from app.controllers.diagnostics_controller import DiagnosticsController
+
+    mock = MockHubClient()
+    service = HubService(mock, ctx.state, ctx.events)
+    diag = DiagnosticsController(ctx.state, ctx.db, hub=service)
+    assert not DiagnosticsController(ctx.state, ctx.db).test_hub().ok  # sin servicio
+
+    service.start()
+    result = diag.test_hub()
+    assert result.ok and result.message == "HUB conectado (simulado)"
+
+    mock.reachable = False
+    mock.disconnect()
+    service.stop()
+    service.start()
+    mock.reachable = True
+    result = diag.test_hub()  # reintenta de inmediato, sin esperar el backoff
+    assert result.ok or "Reintentando" in result.message
+    assert mock.is_connected()
+    service.stop()

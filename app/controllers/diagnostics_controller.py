@@ -6,6 +6,7 @@ from app.controllers.app_state import AppState
 from app.database.database import Database
 from app.protocol.turn_protocol import TurnProtocol
 from app.services.errors import PrintError, SerialSendError, SerialUnavailableError
+from app.services.hub_service import HubService
 from app.services.printer_service import PrinterService
 from app.services.serial_service import SerialService
 from app.utils import constants
@@ -21,8 +22,11 @@ class DiagnosticResult:
     message: str
 
 
-def _pending(phase: int) -> DiagnosticResult:
-    return DiagnosticResult(False, f"No disponible aún: se implementa en la Fase {phase}.")
+_TRANSPORT_NAMES = {
+    "MockHubClient": "simulado",
+    "WebSocketHubClient": "WebSocket",
+    "RestHubClient": "REST",
+}
 
 
 class DiagnosticsController:
@@ -34,18 +38,27 @@ class DiagnosticsController:
         db: Database,
         serial: SerialService | None = None,
         printer: PrinterService | None = None,
+        hub: HubService | None = None,
     ):
         self.state = state
         self._db = db
         self._serial = serial
         self._printer = printer
+        self._hub = hub
 
     def check_database(self) -> DiagnosticResult:
         ok = self._db.is_ok()
         return DiagnosticResult(ok, "Base de datos OK" if ok else "Falla en la base de datos")
 
     def test_hub(self) -> DiagnosticResult:
-        return _pending(3)
+        if self._hub is None:
+            return DiagnosticResult(False, "El servicio del HUB no está activo")
+        client = self._hub.client
+        kind = _TRANSPORT_NAMES.get(type(client).__name__, type(client).__name__)
+        if client.is_connected():
+            return DiagnosticResult(True, f"HUB conectado ({kind})")
+        self._hub.reconnect_now()  # asíncrono: el indicador se actualiza al terminar
+        return DiagnosticResult(False, f"HUB desconectado ({kind}). Reintentando conexión…")
 
     def test_serial(self) -> DiagnosticResult:
         if self._serial is None:

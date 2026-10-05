@@ -1,11 +1,13 @@
 import logging
 import sys
+from dataclasses import replace
 
 import keyring
 from PySide6.QtPrintSupport import QPrinterInfo
 from PySide6.QtWidgets import QApplication
 
-from app.communication.mock_hub_client import MockHubClient
+from app.communication.factory import create_hub_client
+from app.communication.hub_client import HubClient
 from app.context import AppContext
 from app.controllers.app_state import AppState
 from app.database.config_repository import ConfigRepository
@@ -39,6 +41,17 @@ def bootstrap() -> AppContext:
         events=EventRepository(db),
         state=AppState(),
     )
+
+
+def build_hub_client(ctx: AppContext) -> HubClient:
+    """Cliente del HUB según la configuración. Una URL inválida no impide abrir la app."""
+    cfg = ctx.config_service.load()
+    try:
+        return create_hub_client(cfg)
+    except ValueError as exc:
+        log.error("Configuración del HUB inválida, se usa el HUB simulado: %s", exc)
+        ctx.events.add("HUB_ERROR", f"Configuración del HUB inválida: {exc}")
+        return create_hub_client(replace(cfg, hub_url=""))
 
 
 def self_check() -> int:
@@ -78,9 +91,8 @@ def main(argv: list[str] | None = None) -> int:
     app = QApplication.instance() or QApplication(sys.argv)
     app.setApplicationName(constants.APP_NAME)
     app.setQuitOnLastWindowClosed(False)  # sigue en la bandeja al cerrar la ventana
-    # Hasta la fase 7 se usa HUB simulado; serial e impresora ya son servicios reales.
-    terminal_id = ctx.config_service.load().terminal_id or constants.DEFAULT_TERMINAL_ID
-    hub = HubService(MockHubClient(terminal_id), ctx.state, ctx.events)
+    # El transporte del HUB se elige por la URL configurada (sin URL: HUB simulado).
+    hub = HubService(build_hub_client(ctx), ctx.state, ctx.events)
     serial = SerialService(
         ctx.state,
         ctx.events,

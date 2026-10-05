@@ -36,8 +36,12 @@ ruff check . --fix && ruff format .   # lint + formato (obligatorio antes de com
   bandeja y el Inicio; mide la BD (`ping` cada 10 s, `integrity_check` al arrancar). `TurnService` depende solo de los puertos
   `TurnSerialPort` / `TicketPrinter` (`services/ports.py`) y de `errors.py`.
 - `app/communication/`: transportes del HUB detrás de la interfaz `HubClient`
-  (`MockHubClient` hoy; `WebSocketHubClient` / `RestHubClient` en la Fase 7). Cambiar de transporte
-  no debe tocar `TurnService`.
+  (`MockHubClient`, `WebSocketHubClient`, `RestHubClient`; `factory.create_hub_client` elige por la URL:
+  vacía=mock, `wss`=WebSocket, `https`=REST; solo HTTPS/WSS salvo localhost, `hub_url.ensure_secure_url`).
+  El formato de cuadros es PROVISIONAL y vive en `hub_protocol.py` (ver `docs/HUB_PROTOCOLO.md`).
+  Los transportes de red usan hilos propios (`connect_blocks=True`): `HubService` conecta en
+  `QThreadPool` y reenvía los callbacks al hilo de la UI por señales. Cambiar de transporte no
+  debe tocar `TurnService`.
 - `app/protocol/`: `message_validator.py` (mensajes del HUB) y `turn_protocol.py` (`TurnProtocol`,
   paquete serial). `app/hardware/`: `serial_device.py` (envoltorio de pyserial + `SerialSettings`);
   `printer_backend.py` (backends: simulado si `printer_type` vacío, `Windows Printer` vía Qt, USB/Serial/Red
@@ -98,7 +102,7 @@ ruff check . --fix && ruff format .   # lint + formato (obligatorio antes de com
 ## Estado de fases
 
 - [x] 1 Base · [x] 2 UI · [x] 3 Mock HUB · [x] 4 TurnService · [x] 5 Serial · [x] 6 Impresión (genérica; falta el método del hardware real)
-- [ ] 7 HUB real · [ ] 8 Integración
+- [~] 7 HUB real (transportes listos y probados con HUB local; falta el contrato real) · [ ] 8 Integración
   · [~] 9 Empaquetado (archivos listos; falta probar en Windows limpio)
 
 ## Empaquetado
