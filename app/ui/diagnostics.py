@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from app.controllers.app_state import OK, UNKNOWN
+from app.controllers.app_state import ERROR, OK
 from app.controllers.diagnostics_controller import DiagnosticResult, DiagnosticsController
 from app.ui.status_indicator import StatusIndicator
 
@@ -80,7 +80,7 @@ class DiagnosticsPage(QWidget):
 
     def check_database(self) -> None:
         result = self._controller.check_database()
-        self._controller.state.set_status("database", OK if result.ok else UNKNOWN)
+        self._controller.state.set_status("database", OK if result.ok else ERROR)
         self._show(result)
 
     def load_logs(self) -> None:

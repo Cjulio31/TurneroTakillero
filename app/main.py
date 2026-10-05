@@ -12,6 +12,7 @@ from app.database.event_repository import EventRepository
 from app.database.turn_repository import TurnRepository
 from app.hardware.serial_device import SerialSettings
 from app.services.configuration_service import ConfigurationService
+from app.services.health_service import HealthService
 from app.services.hub_service import HubService
 from app.services.printer_service import PrinterService
 from app.services.secret_store import KeyringSecretStore
@@ -65,14 +66,17 @@ def main() -> int:
     )
     hub.turn_received.connect(turn_service.handle_message)
     turn_service.startup()  # recupera turnos pendientes del cierre anterior
-    window = MainWindow(ctx, hub, turn_service, serial, printer)
+    health = HealthService(ctx.state, ctx.db, ctx.turns)
+    window = MainWindow(ctx, hub, turn_service, serial, printer, health)
     window.show()
     serial.start()
     printer.start()
+    health.start()
     hub.start()
     code = app.exec()
     hub.stop()
     serial.stop()
     printer.stop()
+    health.stop()
     ctx.db.close()
     return code

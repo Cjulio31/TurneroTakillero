@@ -67,5 +67,13 @@ class Database:
         except sqlite3.Error:
             return False
 
+    def ping(self) -> bool:
+        """Chequeo barato para el monitoreo periódico (integrity_check es costoso)."""
+        try:
+            self.conn.execute("SELECT 1").fetchone()
+            return True
+        except sqlite3.Error:
+            return False
+
     def close(self) -> None:
         self.conn.close()

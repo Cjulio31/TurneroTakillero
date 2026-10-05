@@ -34,7 +34,9 @@ class DashboardPage(QWidget):
             "hub": StatusIndicator("HUB", state.status("hub")),
             "serial": StatusIndicator("SERIAL", state.status("serial")),
             "printer": StatusIndicator("IMPRESORA", state.status("printer")),
+            "database": StatusIndicator("BASE DE DATOS", state.status("database")),
         }
+        self._health = QLabel()
         self._received = QLabel()
         self._printed = QLabel()
 
@@ -52,6 +54,7 @@ class DashboardPage(QWidget):
         layout.addWidget(box)
         layout.addWidget(self._received)
         layout.addWidget(self._printed)
+        layout.addWidget(self._health)
         layout.addStretch(1)
 
         state.status_changed.connect(self._on_status_changed)
@@ -77,3 +80,6 @@ class DashboardPage(QWidget):
         state = self._controller.state
         self._received.setText(f"Último recibido: {state.last_received or '--'}")
         self._printed.setText(f"Último impreso:  {state.last_printed or '--'}")
+        report = self._controller.health_report()
+        if report is not None:
+            self._health.setText(f"Pendientes: {report.pending} · En error: {report.errors}")

@@ -31,7 +31,9 @@ ruff check . --fix && ruff format .   # lint + formato (obligatorio antes de com
 - `app/controllers/`: puente UI↔servicios. `AppState` (QObject) es el estado compartido
   (estado de hub/serial/impresora/BD) que los servicios actualizan y la UI observa por señales.
 - `app/services/`: `HubService`, `TurnService`, `ConfigurationService` (hechos); `SerialService`,
-  `PrinterService` (hechos); `HealthService` (pendiente). `TurnService` depende solo de los puertos
+  `PrinterService`, `HealthService` (hechos). `HealthService` agrega el estado de los 4
+  componentes + turnos pendientes/en error en un `HealthReport` (OK/DEGRADED/DOWN) que alimenta la
+  bandeja y el Inicio; mide la BD (`ping` cada 10 s, `integrity_check` al arrancar). `TurnService` depende solo de los puertos
   `TurnSerialPort` / `TicketPrinter` (`services/ports.py`) y de `errors.py`.
 - `app/communication/`: transportes del HUB detrás de la interfaz `HubClient`
   (`MockHubClient` hoy; `WebSocketHubClient` / `RestHubClient` en la Fase 7). Cambiar de transporte
