@@ -7,6 +7,7 @@ READY = "READY"
 DISCONNECTED = "DISCONNECTED"
 AVAILABLE = "AVAILABLE"
 UNAVAILABLE = "UNAVAILABLE"
+DISABLED = "DISABLED"  # apagado a propósito por configuración: no es una falla
 OK = "OK"
 ERROR = "ERROR"
 UNKNOWN = "UNKNOWN"

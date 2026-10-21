@@ -38,6 +38,8 @@ class ConfigurationService:
             default = getattr(defaults, f.name)
             if raw is None:
                 values[f.name] = default
+            elif isinstance(default, bool):  # antes que int: bool es subclase de int
+                values[f.name] = raw.strip().lower() in ("1", "true")
             elif isinstance(default, int):
                 try:
                     values[f.name] = int(raw)

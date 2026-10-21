@@ -8,7 +8,7 @@ Principio: el Desktop **recibe, valida, persiste, envía por serial e imprime**;
 - Python 3.11+, PySide6 (sin Flask ni web), SQLite, pyserial, PyInstaller + instalador.
 - Arquitectura por capas: UI → Controllers → Services → (HUB / Serial / Impresora / SQLite).
 - La UI **nunca** contiene lógica de HUB, serial o impresora.
-- Protocolo serial fijo: `0x99 0x55 <turno>` enviado 2 veces; sin CRC/ACK hasta confirmar con el hardware.
+- Protocolo serial: `0x99 0x55 <turno>` (153, 85; configurables) enviado 1 vez por defecto (transmisiones configurables); sin CRC/ACK hasta confirmar con el hardware.
 - Idempotencia por `message_id` (`UNIQUE`). Persistir antes de procesar.
 - `MockHubClient` hasta tener el HUB real.
 

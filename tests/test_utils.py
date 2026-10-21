@@ -70,3 +70,37 @@ def test_clear_logs_removes_active_and_rotated_and_keeps_logging(tmp_path):
 
     logging.getLogger("t").info("despues")
     assert "despues" in path.read_text()
+
+
+def test_excepthook_logs_uncaught_exceptions(caplog):
+    import sys
+
+    from app.utils.logger import install_excepthook
+
+    original = sys.excepthook
+    try:
+        sys.excepthook = lambda *_: None  # pytest-qt hace fallar el test si se invoca el suyo
+        install_excepthook()
+        install_excepthook()  # idempotente: no se envuelve dos veces
+        with caplog.at_level("CRITICAL", logger="app.unhandled"):
+            try:
+                raise ValueError("boom en un slot")
+            except ValueError:
+                sys.excepthook(*sys.exc_info())
+        records = [r for r in caplog.records if r.name == "app.unhandled"]
+        assert len(records) == 1  # un solo registro: el gancho no quedó envuelto dos veces
+        assert records[0].exc_info[0] is ValueError
+    finally:
+        sys.excepthook = original
+
+
+def test_single_instance_blocks_second_and_frees_on_release(tmp_path):
+    from app.utils.single_instance import SingleInstance
+
+    path = tmp_path / "sub" / "turnos.lock"
+    first, second = SingleInstance(path), SingleInstance(path)
+    assert first.acquire()
+    assert not second.acquire()
+    first.release()
+    assert second.acquire()
+    second.release()

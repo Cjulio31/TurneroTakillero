@@ -44,7 +44,7 @@ Name: "{autodesktop}\Turnos Desktop"; Filename: "{app}\TurnosDesktop.exe"; Tasks
 
 [Registry]
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; \
-  ValueName: "TurnosDesktop"; ValueData: """{app}\TurnosDesktop.exe"""; \
+  ValueName: "TurnosDesktop"; ValueData: """{app}\TurnosDesktop.exe"" --minimized"; \
   Flags: uninsdeletevalue; Tasks: autostart
 
 [Run]

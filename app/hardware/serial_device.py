@@ -4,6 +4,7 @@ import serial
 from serial.tools import list_ports
 
 from app.models.configuration import Configuration
+from app.utils import constants
 
 
 @dataclass(frozen=True)
@@ -13,7 +14,9 @@ class SerialSettings:
     data_bits: int = 8
     parity: str = "N"
     stop_bits: int = 1
-    transmissions: int = 2
+    transmissions: int = 1
+    header_1: int = constants.SERIAL_HEADER_1
+    header_2: int = constants.SERIAL_HEADER_2
 
     @classmethod
     def from_config(cls, cfg: Configuration) -> "SerialSettings":
@@ -24,11 +27,13 @@ class SerialSettings:
             parity=cfg.parity,
             stop_bits=cfg.stop_bits,
             transmissions=cfg.serial_transmissions,
+            header_1=cfg.serial_header_1,
+            header_2=cfg.serial_header_2,
         )
 
     @property
     def connection_key(self) -> tuple:
-        """Parámetros que obligan a reabrir el puerto (las transmisiones no)."""
+        """Parámetros que obligan a reabrir el puerto (transmisiones y cabecera no)."""
         return (self.port, self.baudrate, self.data_bits, self.parity, self.stop_bits)
 
 

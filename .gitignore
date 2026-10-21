@@ -11,5 +11,8 @@ dist/
 installer/Output/
 *.db
 *.db-journal
+*.db-wal
+*.db-shm
+turnos.lock
 logs/*.log*
 .env

@@ -6,6 +6,7 @@ from app.communication.backoff import BackoffPolicy
 from app.controllers import app_state as st
 from app.controllers.diagnostics_controller import DiagnosticsController
 from app.hardware.serial_device import SerialDevice, SerialSettings
+from app.models.configuration import Configuration
 from app.protocol.turn_protocol import TurnProtocol
 from app.services.errors import SerialSendError, SerialUnavailableError
 from app.services.serial_service import SerialService
@@ -267,3 +268,47 @@ def test_real_pyserial_port_through_pty(make_env, ctx):
     finally:
         os.close(master)
         os.close(slave)
+
+
+def test_unexpected_open_error_does_not_block_reconnection(qtbot, make_env, ctx):
+    env = make_env(factory=FakeDevice)
+    env.factory_error = RuntimeError("fallo raro del driver")
+    env.service.start()
+    qtbot.waitUntil(lambda: ctx.state.status("serial") == st.DISCONNECTED, timeout=2000)
+    assert "Error inesperado" in env.service.get_status().error
+    env.factory_error = None  # el driver se recupera: debe reconectar solo
+    qtbot.waitUntil(lambda: ctx.state.status("serial") == st.CONNECTED, timeout=3000)
+
+
+def test_protocol_header_is_configurable_and_validated():
+    p = TurnProtocol(0x10, 0x20)
+    assert p.build_packet(5) == b"\x10\x20\x05"
+    assert TurnProtocol().build_packet(25) == PACKET_25  # por defecto 153, 85
+    for bad in (-1, 256, "153", None, True):
+        with pytest.raises(ValueError):
+            TurnProtocol(bad, 85)
+
+
+def test_service_sends_configured_header_once_by_default(make_env):
+    env = make_env(factory=FakeDevice)
+    env.settings = SerialSettings(port="loop://", header_1=1, header_2=2)  # transmisiones: 1
+    assert env.service.connect()
+    env.service.send_turn(25)
+    assert env.devices[0].writes == [b"\x01\x02\x19"]  # una sola vez, con la cabecera configurada
+    assert env.service.build_packet(7) == b"\x01\x02\x07"
+
+
+def test_default_settings_match_client_spec():
+    cfg = Configuration()
+    assert (cfg.serial_header_1, cfg.serial_header_2, cfg.serial_transmissions) == (153, 85, 1)
+    settings = SerialSettings.from_config(cfg)
+    assert (settings.header_1, settings.header_2, settings.transmissions) == (153, 85, 1)
+    assert settings.connection_key == SerialSettings(port="").connection_key  # no reabre el puerto
+
+
+def test_diagnostics_shows_configured_packet(make_env, ctx):
+    env = make_env(factory=FakeDevice, transmissions=1)
+    env.settings = SerialSettings(port="loop://", transmissions=1, header_1=1, header_2=2)
+    env.service.connect()
+    diag = DiagnosticsController(ctx.state, ctx.db, serial=env.service)
+    assert diag.send_test_turn(25).message == "TX: 01 02 19 (x1)"

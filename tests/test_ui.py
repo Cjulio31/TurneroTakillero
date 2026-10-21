@@ -55,7 +55,8 @@ def test_configuration_save_and_validation(qtbot, ctx):
     page = window.pages["Configuración"]
     page.hub_url.setText("https://hub.test")
     page.terminal_id.setText("")
-    assert page.save(msg_box=False) is False
+    assert page.save() is False
+    assert page.action_bar.title.startswith("No guardado")  # el error se ve en la propia barra
 
     page.terminal_id.setText("TERM-001")
     assert page.save() is True
@@ -133,9 +134,12 @@ def test_mock_hub_page_controls(qtbot, ctx):
     hub.stop()
 
 
-def test_turns_page_retry_uses_turn_service(qtbot, ctx):
+def test_turns_page_retry_uses_turn_service(qtbot, ctx, monkeypatch):
     from app.services.errors import PrintError
     from app.services.turn_service import TurnService
+    from app.ui import dialogs
+
+    monkeypatch.setattr(dialogs, "confirm", lambda *_: True)
 
     class Printer:
         fail = True
@@ -169,7 +173,7 @@ def test_turns_page_retry_uses_turn_service(qtbot, ctx):
     page.retry_button.click()
     assert ctx.turns.get_by_message_id("A").status == "COMPLETED"
     assert page.table.rowCount() == 0
-    assert "COMPLETED" in page.message.text()
+    assert "completado" in page.message.text().lower()
 
 
 def test_self_check_passes(tmp_path, monkeypatch):
@@ -197,5 +201,99 @@ def test_diagnostics_clear_logs(qtbot, ctx, tmp_path, monkeypatch):
     assert "linea vieja" in page.log_view.toPlainText()
     page.clear_logs(confirm=False)
     assert "linea vieja" not in page.log_view.toPlainText()
-    assert page.result.text().startswith("✔ Logs borrados")
+    assert page.result.text().startswith("Logs borrados")
     assert ctx.turns.last() is None  # no toca los datos
+
+
+def test_turns_page_retry_needs_error_selection_and_confirmation(qtbot, ctx, monkeypatch):
+    from app.services.errors import PrintError
+    from app.services.turn_service import TurnService
+    from app.ui import dialogs
+
+    class Printer:
+        def print_ticket(self, turn):
+            raise PrintError("sin papel")
+
+    class Serial:
+        def send_turn(self, n):
+            pass
+
+    service = TurnService(
+        ctx.turns,
+        ctx.events,
+        ctx.state,
+        Serial(),
+        Printer(),
+        ack_sender=lambda *_: True,
+        terminal_id=lambda: "TERM-001",
+    )
+    window = MainWindow(ctx, None, service)
+    qtbot.addWidget(window)
+    page = window.pages["Turnos"]
+    assert not page.retry_button.isEnabled()  # nada seleccionado
+
+    service.handle_message({"message_id": "A", "terminal_id": "TERM-001", "turn": 25})
+    assert not page.retry_button.isEnabled()  # hay un turno, pero no seleccionado
+    page.table.selectRow(0)
+    assert page.retry_button.isEnabled()  # turno en ERROR seleccionado
+
+    asked = []
+    monkeypatch.setattr(dialogs, "confirm", lambda *args: asked.append(args) or False)
+    page.retry_button.click()
+    assert asked and "25" in asked[0][2]
+    assert ctx.turns.get_by_message_id("A").status == "ERROR"  # al decir "No" no se reintenta
+    assert page.message.text() == ""
+
+
+def test_diagnostics_test_turn_asks_before_sending(qtbot, ctx, monkeypatch):
+    from app.ui import dialogs
+    from app.ui.diagnostics import DiagnosticsPage
+
+    sent = []
+
+    class FakeController(DiagnosticsController):
+        def send_test_turn(self, turn_number):
+            sent.append(turn_number)
+            return super().send_test_turn(turn_number)
+
+    page = DiagnosticsPage(FakeController(ctx.state, ctx.db))
+    qtbot.addWidget(page)
+    monkeypatch.setattr(dialogs, "confirm", lambda *_: False)
+    page.send_test_turn()
+    assert sent == []  # al decir "No" no se envía nada al serial
+    monkeypatch.setattr(dialogs, "confirm", lambda *_: True)
+    page.send_test_turn()
+    assert sent == [25]
+
+
+def test_hardware_page_saves_print_tickets_flag(qtbot, ctx):
+    from app.controllers.config_controller import ConfigController
+    from app.ui.hardware import HardwarePage
+
+    controller = ConfigController(ctx.config_service)
+    page = HardwarePage(controller)
+    qtbot.addWidget(page)
+    assert page.print_tickets.isChecked()  # por defecto imprime
+    page.print_tickets.setChecked(False)
+    assert page.save()
+    assert ctx.config_service.load().print_tickets is False
+    reopened = HardwarePage(controller)
+    qtbot.addWidget(reopened)
+    assert not reopened.print_tickets.isChecked()
+
+
+def test_hardware_page_shows_and_saves_serial_header(qtbot, ctx):
+    from app.controllers.config_controller import ConfigController
+    from app.ui.hardware import HardwarePage
+
+    controller = ConfigController(ctx.config_service)
+    page = HardwarePage(controller)
+    qtbot.addWidget(page)
+    assert (page.header_1.value(), page.header_2.value()) == (153, 85)
+    assert page.transmissions.value() == 1
+    assert page.packet_preview.text() == "99 55 <turno>"
+    page.header_1.setValue(16)
+    assert page.packet_preview.text() == "10 55 <turno>"
+    assert page.save()
+    cfg = ctx.config_service.load()
+    assert (cfg.serial_header_1, cfg.serial_header_2) == (16, 85)

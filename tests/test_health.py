@@ -107,6 +107,13 @@ def test_ui_shows_health(qtbot, ctx):
     health.stop()
     dash = window.pages["Inicio"]
     dash.refresh()
-    assert dash._health.text() == "Pendientes: 1 · En error: 0"
+    assert (dash._banner.pending.text(), dash._banner.errors.text()) == ("1", "0")
     assert "OK" in dash._indicators["database"].text()
     assert "Estado:" in window.tray.status_action.text()
+
+
+def test_disabled_printer_is_not_a_problem(env):
+    env.all_good()
+    env.ctx.state.set_status("printer", st.DISABLED)
+    report = env.service.start()
+    assert report.level == LEVEL_OK and report.problems == ()

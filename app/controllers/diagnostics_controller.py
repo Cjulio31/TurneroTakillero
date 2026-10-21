@@ -80,8 +80,7 @@ class DiagnosticsController:
             self._serial.send_turn(turn_number)
         except (SerialUnavailableError, SerialSendError) as exc:
             return DiagnosticResult(False, f"No se pudo enviar el turno de prueba: {exc}")
-        protocol = TurnProtocol()
-        packet = protocol.format_packet(protocol.build_packet(turn_number))
+        packet = TurnProtocol.format_packet(self._serial.build_packet(turn_number))
         return DiagnosticResult(True, f"TX: {packet} (x{self._serial.transmissions})")
 
     @staticmethod

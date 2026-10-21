@@ -18,7 +18,7 @@ LEVEL_OK = "OK"
 LEVEL_DEGRADED = "DEGRADED"  # la app funciona, pero hay algo que atender
 LEVEL_DOWN = "DOWN"  # no se puede garantizar la persistencia de turnos
 
-_GOOD = (st.CONNECTED, st.READY, st.AVAILABLE, st.OK)
+_GOOD = (st.CONNECTED, st.READY, st.AVAILABLE, st.OK, st.DISABLED)
 _STATE_TEXT = {
     st.CONNECTING: "conectando",
     st.DISCONNECTED: "desconectado",

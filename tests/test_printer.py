@@ -154,3 +154,15 @@ def test_windows_backend_renders_to_pdf(tmp_path):
         build_ticket(make_turn(25), "Caja 1", "Piso 2", NOW)
     )
     assert out.read_bytes().startswith(b"%PDF")
+
+
+def test_print_disabled_shows_disabled_but_test_ticket_still_prints(env):
+    env.cfg.print_tickets = False
+    assert env.service.refresh_status()  # la impresora responde
+    assert env.ctx.state.status("printer") == st.DISABLED
+    env.service.test()  # la prueba manual sigue funcionando
+    assert len(env.backend.tickets) == 1
+    assert env.ctx.state.status("printer") == st.DISABLED  # y no lo vuelve a "disponible"
+    env.cfg.print_tickets = True
+    env.service.refresh_status()
+    assert env.ctx.state.status("printer") == st.AVAILABLE

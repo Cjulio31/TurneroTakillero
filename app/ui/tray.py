@@ -1,16 +1,36 @@
 from PySide6.QtCore import QObject, Qt, Signal
-from PySide6.QtGui import QAction, QColor, QIcon, QPainter, QPixmap
+from PySide6.QtGui import QAction, QColor, QIcon, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import QMenu, QSystemTrayIcon
+
+from app.utils.resources import resource_path
 
 
 def make_icon(color: str = "#2e9e45") -> QIcon:
-    pixmap = QPixmap(32, 32)
+    """Logo de la app con un punto de color de estado abajo a la derecha (verde/ámbar/rojo)."""
+    size = 64
+    pixmap = QPixmap(size, size)
     pixmap.fill(Qt.GlobalColor.transparent)
     painter = QPainter(pixmap)
     painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-    painter.setBrush(QColor(color))
-    painter.setPen(Qt.PenStyle.NoPen)
-    painter.drawEllipse(4, 4, 24, 24)
+    logo = QPixmap(str(resource_path("resources/icons/app.png")))
+    if logo.isNull():  # sin recurso: solo el círculo de estado
+        painter.setBrush(QColor(color))
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.drawEllipse(8, 8, 48, 48)
+    else:
+        painter.drawPixmap(
+            0,
+            0,
+            logo.scaled(
+                size,
+                size,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            ),
+        )
+        painter.setBrush(QColor(color))
+        painter.setPen(QPen(QColor("#FFFFFF"), 4))
+        painter.drawEllipse(34, 34, 28, 28)
     painter.end()
     return QIcon(pixmap)
 

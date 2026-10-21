@@ -57,8 +57,10 @@ class TurnService(QObject):
         printer: TicketPrinter,
         ack_sender: Callable[[str, str], bool],
         terminal_id: Callable[[], str],
+        print_enabled: Callable[[], bool] = lambda: True,
     ):
         super().__init__()
+        self._print_enabled = print_enabled
         self._turns = turns
         self._events = events
         self._state = state
@@ -125,6 +127,10 @@ class TurnService(QObject):
                 return self._fail(message_id, ERR_SERIAL, str(exc))
             self._turns.update_status(message_id, constants.STATUS_SENT)
             self.turn_changed.emit(message_id)
+
+        if not self._print_enabled():  # impresión apagada: ya se envió al serial, se cierra directo
+            log.info("PRINT SKIPPED (impresión desactivada): %s", message_id)
+            return self._complete(message_id)
 
         try:
             self._printer.print_ticket(self._turns.get_by_message_id(message_id))

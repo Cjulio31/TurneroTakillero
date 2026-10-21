@@ -1,4 +1,5 @@
 import logging
+import sys
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
@@ -72,6 +73,27 @@ def clear_logs(log_path: Path | None = None) -> tuple[int, int]:
             handler.release()
     logging.getLogger(__name__).info("Logs borrados por el usuario (%s archivo(s))", deleted)
     return deleted, size
+
+
+def install_excepthook() -> None:
+    """Registra en el log las excepciones no capturadas, incluidas las de slots de Qt.
+
+    Sin esto, en el .exe sin consola un error dentro de un slot (p. ej. al procesar un turno)
+    no deja rastro. Idempotente: no se envuelve dos veces.
+    """
+    previous = sys.excepthook
+    if getattr(previous, "_turnos_hook", False):
+        return
+
+    def hook(exc_type, exc, tb) -> None:
+        if not issubclass(exc_type, KeyboardInterrupt):
+            logging.getLogger("app.unhandled").critical(
+                "Excepción no capturada", exc_info=(exc_type, exc, tb)
+            )
+        previous(exc_type, exc, tb)
+
+    hook._turnos_hook = True  # type: ignore[attr-defined]
+    sys.excepthook = hook
 
 
 def get_logger(name: str) -> logging.Logger:

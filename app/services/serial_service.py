@@ -39,11 +39,7 @@ class _ConnectTask(QRunnable):
         self._settings = settings
 
     def run(self) -> None:
-        device, error = None, ""
-        try:
-            device = self._service._factory(self._settings)
-        except (serial.SerialException, OSError, ValueError) as exc:
-            error = str(exc)
+        device, error = self._service._open_device(self._settings)
         self._service._connect_done.emit(self._settings, device, error)
 
 
@@ -75,7 +71,7 @@ class SerialService(QObject):
         self._factory = device_factory
         self._list_ports = port_lister
         self._backoff = backoff or BackoffPolicy(SERIAL_BACKOFF)
-        self._protocol = protocol or TurnProtocol()
+        self._protocol = protocol  # None: se arma con la cabecera de la configuración vigente
 
         self._lock = threading.Lock()
         self._device: SerialDevice | None = None
@@ -113,12 +109,19 @@ class SerialService(QObject):
         if not settings.port:
             error = "Puerto serial no configurado"
         else:
-            try:
-                device = self._factory(settings)
-            except (serial.SerialException, OSError, ValueError) as exc:
-                error = str(exc)
+            device, error = self._open_device(settings)
         self._on_connect_done(settings, device, error)
         return self.is_connected()
+
+    def _open_device(self, settings: SerialSettings) -> tuple[SerialDevice | None, str]:
+        """Abre el puerto. Todo fallo vuelve como mensaje: un intento nunca queda sin resolver."""
+        try:
+            return self._factory(settings), ""
+        except (serial.SerialException, OSError, ValueError) as exc:
+            return None, str(exc)
+        except Exception as exc:  # si no, `_connecting` quedaría en True y no se reconectaría
+            log.exception("Fallo inesperado al abrir el puerto serial")
+            return None, f"Error inesperado: {exc}"
 
     def disconnect(self) -> None:
         self._close_device()
@@ -154,8 +157,15 @@ class SerialService(QObject):
         return SerialStatus(self.is_connected(), settings.port, self._last_error)
 
     # --- envío -----------------------------------------------------------------------------
+    def build_packet(self, turn_number: int) -> bytes:
+        """Paquete del turno con la cabecera configurada (o el protocolo inyectado en pruebas)."""
+        if self._protocol is not None:
+            return self._protocol.build_packet(turn_number)
+        settings = self._provider()
+        return TurnProtocol(settings.header_1, settings.header_2).build_packet(turn_number)
+
     def send_turn(self, turn_number: int) -> None:
-        packet = self._protocol.build_packet(turn_number)
+        packet = self.build_packet(turn_number)
         self._ensure_port_present()
         for _ in range(self.transmissions):
             self.send(packet)
@@ -174,10 +184,10 @@ class SerialService(QObject):
             else:
                 failure = None
         if failure is not None:
-            log.error("SERIAL TX failed (%s): %s", self._protocol.format_packet(data), failure)
+            log.error("SERIAL TX failed (%s): %s", TurnProtocol.format_packet(data), failure)
             self._handle_lost(f"Error al escribir: {failure}")
             raise SerialSendError(str(failure)) from failure
-        log.info("SERIAL TX: %s", self._protocol.format_packet(data))
+        log.info("SERIAL TX: %s", TurnProtocol.format_packet(data))
 
     # --- conexión interna ------------------------------------------------------------------
     def _begin_connect(self) -> None:

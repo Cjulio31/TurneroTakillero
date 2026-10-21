@@ -129,7 +129,10 @@ porque el `.exe` no tiene consola.
 
 - **Probar en Windows limpio** (§6) y registrar el resultado aquí.
 - **Firma de código** del `.exe` y del instalador (certificado) para evitar SmartScreen.
-- **Icono definitivo** en `resources/icons/app.ico`.
+- ~~Icono definitivo~~ **Hecho**: `resources/icons/app.ico` (16–256 px), `app.png` y `app.svg`,
+  generados con `python tools/make_icons.py`. Revisar que el instalador y el `.exe` lo muestren.
 - Editor/nombre de la empresa en `AppPublisher` del `.iss`.
 - Cuando existan las Fases 7-8, volver a ejecutar §6 con el HUB y la impresora reales.
-- Opcional: casilla en la app para activar/desactivar "iniciar con Windows" sin reinstalar.
+- ~~Casilla "iniciar con Windows"~~ **Hecha**: Configuración → Terminal → *Iniciar con Windows*.
+  Escribe el mismo valor `TurnosDesktop` de `HKCU\...\Run` que el instalador, con `--minimized`.
+  Probar en Windows limpio que la app arranca oculta en la bandeja al iniciar sesión.

@@ -1,7 +1,7 @@
 # Turnos Desktop
 
 Aplicativo de escritorio (Python + PySide6) que recibe turnos desde un HUB/HOOB, los persiste en
-SQLite, los envía por serial (`99 55 <turno>` x2) y los imprime. Ver `PLAN_DE_TRABAJO.md`.
+SQLite, los envía por serial (`99 55 <turno>`, 1 vez; cabecera y transmisiones configurables) y los imprime. Ver `PLAN_DE_TRABAJO.md`.
 
 ## Desarrollo
 

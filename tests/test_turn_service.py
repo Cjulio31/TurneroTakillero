@@ -41,6 +41,7 @@ class Env:
         self.serial = FakeSerial()
         self.printer = FakePrinter()
         self.hub_up = True
+        self.print_enabled = True
         self.acks = []
         self.service = TurnService(
             ctx.turns,
@@ -50,6 +51,7 @@ class Env:
             self.printer,
             ack_sender=self._ack,
             terminal_id=lambda: "TERM-001",
+            print_enabled=lambda: self.print_enabled,
         )
 
     def _ack(self, message_id, status):
@@ -274,3 +276,22 @@ def test_end_to_end_with_mock_hub(qtbot, ctx):
     assert serial.sent == [25]
     qtbot.waitUntil(lambda: serial.sent == [25, 26], timeout=2000)
     hub.stop()
+
+
+def test_print_disabled_sends_serial_and_completes_without_printing(env):
+    env.print_enabled = False
+    result = env.service.handle_message(env.msg())
+    assert result.outcome == ts.OUTCOME_COMPLETED
+    assert env.serial.sent == [25]  # el turno sí llega al dispositivo
+    assert env.printer.printed == []  # pero no se imprime tiquete
+    turn = env.ctx.turns.get_by_message_id("A")
+    assert turn.status == constants.STATUS_COMPLETED
+    assert turn.sent_at is not None and turn.printed_at is None
+    assert env.acks == [("A", constants.STATUS_COMPLETED)]
+
+
+def test_print_disabled_does_not_hide_serial_errors(env):
+    env.print_enabled = False
+    env.serial.error = SerialSendError("cable")
+    assert env.service.handle_message(env.msg()).outcome == ts.OUTCOME_ERROR
+    assert env.printer.printed == []

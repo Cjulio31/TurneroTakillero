@@ -7,7 +7,7 @@ código (nombres, commits) en inglés/español técnico consistente con lo exist
 
 **Turnos Desktop**: aplicativo de escritorio (Python 3.11+ / PySide6) que es el cliente operativo de
 una terminal de turnos. Recibe turnos desde un HUB/HOOB, los valida, los persiste en SQLite, los
-envía a un dispositivo serial (`99 55 <turno>` ×2) y los imprime. **No genera turnos.**
+envía a un dispositivo serial (`99 55 <turno>`, 1 vez por defecto) y los imprime. **No genera turnos.**
 Plan y fases: `PLAN_DE_TRABAJO.md`. La especificación completa vive en ese plan y en el README.
 
 ## Comandos
@@ -28,6 +28,13 @@ ruff check . --fix && ruff format .   # lint + formato (obligatorio antes de com
 `UI (PySide6) → Controllers → Services → HUB / Serial / Impresora / SQLite`
 
 - `app/ui/`: solo widgets. **Nunca** lógica de HUB, serial o impresora; llaman a controladores.
+  Sistema de diseño en `theme.py` (paletas **clara por defecto** y oscura, QSS, `theme.set_mode`,
+  preferencia en `Configuration.theme`), `icons.py` (SVG con el color del tema, `app_icon()`) y
+  `widgets.py` (Switch, Pill, MessageBanner, ActionBar, delegados de tabla). **Ningún widget define
+  colores hex propios**: usa `theme.palette` o los niveles `ok/warn/err/off` (`state_level`,
+  `turn_level`); el estado se comunica con color **y** glifo. Conectar a `theme.changed` solo con
+  métodos de `QObject`, nunca `lambda` (sobrevive a los objetos de Qt y falla al destruirse).
+  Qt ignora `border-radius` si el borde es `none`: usar un borde del mismo color.
 - `app/controllers/`: puente UI↔servicios. `AppState` (QObject) es el estado compartido
   (estado de hub/serial/impresora/BD) que los servicios actualizan y la UI observa por señales.
 - `app/services/`: `HubService`, `TurnService`, `ConfigurationService` (hechos); `SerialService`,
@@ -44,6 +51,11 @@ ruff check . --fix && ruff format .   # lint + formato (obligatorio antes de com
   aún `UnsupportedBackend` hasta tener el modelo real) y `ticket.py` (contenido del ticket).
 - `app/database/`: SQLite (tablas `turns`, `configuration`, `events`) + repositorios.
 - `app/context.py`: `AppContext` agrupa db, servicios base y `AppState`.
+- Inicio con Windows: `services/autostart.py` (`HKCU\...\Run`, valor `TurnosDesktop`, el mismo que
+  registra el instalador; comando con `--minimized` = arranca oculta en la bandeja). Se activa en
+  Configuración; el instalador y la casilla de la app no se pisan.
+- Ícono: `resources/icons/app.{svg,png,ico}` se generan con `python tools/make_icons.py`
+  (no editar el `.ico` a mano). `utils/resources.resource_path` resuelve la ruta en el `.exe`.
 
 ## Reglas críticas (no romper)
 
@@ -56,10 +68,15 @@ ruff check . --fix && ruff format .   # lint + formato (obligatorio antes de com
    Serial no disponible (nada enviado) → el turno vuelve a `RECEIVED` y se procesa al volver el
    serial. Error de impresión → `ERROR`; el reintento NO reenvía el serial (`sent_at` ya existe).
    Error de envío serial incierto (`SerialSendError`) → `ERROR`, sin reintento automático.
+   Con `print_tickets` desactivado (pantalla Hardware) el turno va `SENT → COMPLETED` sin pasar por
+   `PRINTED` (`printed_at` queda vacío) y la impresora figura `DISABLED`, que no degrada la salud.
 4. **Recuperación tras reinicio** (`TurnService.recover_on_startup`): `PROCESSING`/`SENT` → `ERROR`
    (`INTERRUPTED`, verificación manual); `PRINTED` → `COMPLETED`; `RECEIVED` se procesa; `ERROR` queda
    para reintento manual. Nunca reprocesar a ciegas.
-5. **Protocolo serial** (`TurnProtocol`, `SerialService`): `0x99 0x55 <turno 1 byte>`, enviado 2 veces. **No agregar CRC, checksum,
+5. **Protocolo serial** (`TurnProtocol`, `SerialService`): `<byte 1> <byte 2> <turno 1 byte>`, por defecto `0x99 0x55` (153, 85, según el cliente:
+   `Serial.write(153); Serial.write(85); Serial.write(turno)`), enviado 1 vez. Cabecera y número de
+   transmisiones (1–5) son configurables en Hardware (`serial_header_1/2`, `serial_transmissions`).
+   **No agregar CRC, checksum,
    ACK ni bytes extra** hasta confirmar con el hardware. Sin reintento serial ciego (ambigüedad
    sin ACK). El turno es 1–255. Sin puerto o con el puerto desaparecido (se verifica antes de
    escribir) → `SerialUnavailableError` (nada enviado, turno pendiente); fallo durante la escritura →

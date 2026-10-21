@@ -76,9 +76,18 @@ class PrinterService(QObject):
             log.exception("Error al consultar la impresora")
             return False
 
+    @property
+    def enabled(self) -> bool:
+        """False si la configuración apaga la impresión de tiquetes (no es una falla)."""
+        return self._config().print_tickets
+
     def refresh_status(self) -> bool:
+        """Actualiza el estado; devuelve si la impresora responde (aunque la impresión esté off)."""
         available = self.is_available()
-        self._state.set_status("printer", st.AVAILABLE if available else st.UNAVAILABLE)
+        if not self.enabled:
+            self._state.set_status("printer", st.DISABLED)
+        else:
+            self._state.set_status("printer", st.AVAILABLE if available else st.UNAVAILABLE)
         return available
 
     def print_ticket(self, turn: Turn) -> None:
@@ -101,7 +110,8 @@ class PrinterService(QObject):
             log.exception("Fallo inesperado al imprimir %s", what)
             self._failed(what, str(exc))
             raise PrintError(str(exc)) from exc
-        self._state.set_status("printer", st.AVAILABLE)
+        if self.enabled:  # una prueba con la impresión apagada no cambia el estado "desactivada"
+            self._state.set_status("printer", st.AVAILABLE)
         log.info("PRINT OK: %s", what)
 
     def _failed(self, what: str, reason: str) -> None:

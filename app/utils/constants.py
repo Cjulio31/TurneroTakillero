@@ -26,6 +26,7 @@ def resolve_base_dir() -> Path:
 BASE_DIR = resolve_base_dir()
 DATABASE_PATH = BASE_DIR / "database" / "turnos.db"
 LOG_PATH = BASE_DIR / "logs" / "app.log"
+LOCK_PATH = BASE_DIR / "turnos.lock"
 LOG_MAX_BYTES = 5 * 1024 * 1024
 LOG_BACKUP_COUNT = 5
 

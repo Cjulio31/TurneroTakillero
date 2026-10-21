@@ -21,6 +21,7 @@ class MockHubPage(QWidget):
 
     def __init__(self, mock: MockHubClient, parent: QWidget | None = None):
         super().__init__(parent)
+        self.setObjectName("Page")
         self._mock = mock
 
         self.terminal = QLineEdit(mock.terminal_id)
@@ -62,6 +63,8 @@ class MockHubPage(QWidget):
         grid.addWidget(self.reachable, 7, 0, 1, 2)
 
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(32, 28, 32, 28)
+        layout.setSpacing(16)
         layout.addWidget(box)
         layout.addWidget(self.log, 1)
         mock.add_listener(self._append_log)
